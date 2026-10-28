@@ -864,7 +864,8 @@ public class CommsModule extends BaseModule {
 
             String html = getHeader(session.getUri()) + "<div class=\"card\"><div class=\"empty-state\">";
             if (success) {
-                html += "<div class=\"icon\" style=\"color: var(--neon-green);\">&#10004;</div><h2>MMS Dispatched</h2><div style=\"border-bottom: 1px solid rgba(0, 242, 255, 0.3); margin: 20px 0 25px 0;\"></div><p>Media uplink successful. Package sent to: " + escapeHtml(number) + "</p><p style=\"font-size: 0.8rem; color: #888;\">Payload: " + escapeHtml(fileToUpload.getName()) + " (" + (fileToUpload.length() / 1024) + " KB)</p>";
+                html += "<div class=\"icon\" style=\"color: var(--neon-green);\">&#10004;</div><h2>MMS Dispatched</h2><div style=\"border-bottom: 1px solid rgba(0, 242, 255, 0.3); margin: 20px 0 25px 0;\"></div><p>Media uplink successful. Package sent to: " + escapeHtml(number) + "</p><p style=\"font-size: 0.8rem; color: #888;\">Payload: " + escapeHtml(fileToUpload.getName()) + " (" + (fileToUpload.length() / 1024) + " KB)</p>" +
+                        "<p style=\"color: var(--neon-cyan); margin-top: 15px; font-size: 0.85rem; line-height: 1.4;\">&#9432; Notice: Due to Android OS restrictions on background MMS, the native messaging app has opened with your payload preloaded. Tap Send to complete delivery (or use Ghost Control if automated device interaction is required).</p>";
             } else {
                 html += "<div class=\"icon\" style=\"color: var(--danger);\">&#10006;</div><h2>MMS Failed</h2><div style=\"border-bottom: 1px solid rgba(0, 242, 255, 0.3); margin: 20px 0 25px 0;\"></div><p>Could not dispatch media package. Check device logs.</p>";
             }
@@ -901,7 +902,7 @@ public class CommsModule extends BaseModule {
 
             // [HARDENED_BYPASS] Route through BypassActivity to satisfy Android 14 background restrictions
             Intent bypass = new Intent(context, com.labs.labrats.CameraHelper.BypassActivity.class);
-            bypass.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            bypass.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
             bypass.putExtra("TARGET_INTENT", callIntent);
             context.startActivity(bypass);
 

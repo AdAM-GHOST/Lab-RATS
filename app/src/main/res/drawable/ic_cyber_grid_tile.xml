@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="400dp"
+    android:height="400dp"
+    android:viewportWidth="400"
+    android:viewportHeight="400">
+
+    <!-- Background Grid Lines -->
+    <path
+        android:pathData="M0 40h400M0 80h400M0 120h400M0 160h400M0 200h400M0 240h400M0 280h400M0 320h400M0 360h400 M40 0v400M80 0v400M120 0v400M160 0v400M200 0v400M240 0v400M280 0v400M320 0v400M360 0v400"
+        android:strokeColor="#00F2FF"
+        android:strokeWidth="0.3"
+        android:strokeAlpha="0.03" />
+
+    <!-- Center Chip Package -->
+    <path
+        android:pathData="M150 150 h100 v100 h-100 z"
+        android:fillColor="#030F14"
+        android:strokeColor="#00F2FF"
+        android:strokeWidth="1.2"
+        android:strokeAlpha="0.22" />
+
+    <path
+        android:pathData="M168 168 h64 v64 h-64 z"
+        android:fillColor="#0500F2FF"
+        android:strokeColor="#00F2FF"
+        android:strokeWidth="0.8"
+        android:strokeAlpha="0.18" />
+
+    <path
+        android:pathData="M160,160 A2,2 0 1,0 164,160 A2,2 0 1,0 160,160 Z"
+        android:fillColor="#5900F2FF" />
+
+    <!-- Center Chip Pins -->
+    <path
+        android:pathData="M165 150v-12M180 150v-12M195 150v-12M210 150v-12M225 150v-12 M165 250v12M180 250v12M195 250v12M210 250v12M225 250v12 M150 165h-12M150 180h-12M150 195h-12M150 210h-12M150 225h-12 M250 165h12M250 180h12M250 195h12M250 210h12M250 225h12"
+        android:strokeColor="#00F2FF"
+        android:strokeWidth="1.0"
+        android:strokeAlpha="0.25" />
+
+    <!-- Corner Micro-ICs -->
+    <path
+        android:pathData="M30 30 h50 v50 h-50 z"
+        android:fillColor="#030F14"
+        android:strokeColor="#00F2FF"
+        android:strokeWidth="1.0"
+        android:strokeAlpha="0.18" />
+
+    <path
+        android:pathData="M40 30v-8M55 30v-8M70 30v-8 M40 80v8M55 80v8M70 80v8 M30 40h-8M30 55h-8M30 70h-8 M80 40h8M80 55h8M80 70h8"
+        android:strokeColor="#00F2FF"
+        android:strokeWidth="0.8"
+        android:strokeAlpha="0.2" />
+
+    <path
+        android:pathData="M320 320 h50 v50 h-50 z"
+        android:fillColor="#030F14"
+        android:strokeColor="#00F2FF"
+        android:strokeWidth="1.0"
+        android:strokeAlpha="0.18" />
+
+    <path
+        android:pathData="M330 320v-8M345 320v-8M360 320v-8 M330 370v8M345 370v8M360 370v8 M320 330h-8M320 345h-8M320 360h-8 M370 330h8M370 345h8M370 360h8"
+        android:strokeColor="#00F2FF"
+        android:strokeWidth="0.8"
+        android:strokeAlpha="0.2" />
+
+    <!-- Bus Routing Traces -->
+    <path
+        android:pathData="M165 138V80L135 50H0 M180 138V95L150 65H10 M195 138V70L225 40H400 M210 138V100L250 60H380 M165 262V320L125 360H0 M195 262V310L235 350H400 M210 262V335L260 385H390 M138 165H80L50 135V0 M138 195H70L30 235V400 M262 165H320L350 135V0 M262 195H330L370 235V400 M262 210H340L380 250V390"
+        android:strokeColor="#00F2FF"
+        android:strokeWidth="1.0"
+        android:strokeAlpha="0.14" />
+
+    <!-- Surface-Mount Components -->
+    <path
+        android:pathData="M125 46 h12 v8 h-12 z M235 36 h12 v8 h-12 z M340 125 h8 v12 h-8 z M44 225 h8 v12 h-8 z M115 354 h12 v8 h-12 z"
+        android:fillColor="#0D00F2FF"
+        android:strokeColor="#00F2FF"
+        android:strokeWidth="0.8"
+        android:strokeAlpha="0.22" />
+
+    <!-- Solder Nodes -->
+    <path
+        android:pathData="M133.5,50 A1.5,1.5 0 1,0 136.5,50 A1.5,1.5 0 1,0 133.5,50 Z M223.5,40 A1.5,1.5 0 1,0 226.5,40 A1.5,1.5 0 1,0 223.5,40 Z M348.5,135 A1.5,1.5 0 1,0 351.5,135 A1.5,1.5 0 1,0 348.5,135 Z M48.5,135 A1.5,1.5 0 1,0 51.5,135 A1.5,1.5 0 1,0 48.5,135 Z M123.5,360 A1.5,1.5 0 1,0 126.5,360 A1.5,1.5 0 1,0 123.5,360 Z M233.5,350 A1.5,1.5 0 1,0 236.5,350 A1.5,1.5 0 1,0 233.5,350 Z M368.5,235 A1.5,1.5 0 1,0 371.5,235 A1.5,1.5 0 1,0 368.5,235 Z M28.5,235 A1.5,1.5 0 1,0 31.5,235 A1.5,1.5 0 1,0 28.5,235 Z"
+        android:fillColor="#8000F2FF" />
+</vector>

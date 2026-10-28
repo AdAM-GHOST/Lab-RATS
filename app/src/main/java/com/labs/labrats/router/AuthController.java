@@ -62,7 +62,10 @@ public class AuthController {
                     token = UUID.randomUUID().toString();
                     WorkManager_Sync.activeSessionToken = token;
                 }
-                response.addHeader("Set-Cookie", "token=" + token + "; Path=/; HttpOnly; Max-Age=31536000");
+                context.getSharedPreferences("StabilityConfig", Context.MODE_PRIVATE)
+                        .edit().putString("session_token", token).apply();
+
+                response.addHeader("Set-Cookie", "token=" + token + "; Path=/; Max-Age=31536000; SameSite=Lax");
                 return response;
             } else {
                 FirebaseConfig.logActivity("UPLINK_DENIED: Invalid credentials");

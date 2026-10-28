@@ -49,8 +49,8 @@
         </LinearLayout>
 
         <ImageView
-            android:layout_width="140dp"
-            android:layout_height="134dp"
+            android:layout_width="152dp"
+            android:layout_height="149dp"
             android:layout_marginTop="10dp"
             android:src="@drawable/ic_weather" />
 

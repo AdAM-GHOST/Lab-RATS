@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<permissions>
+    <!-- OEM Privileged Permission Whitelist for Pre-Installed Firmware Apps -->
+    <privapp-permissions package="com.android.system.stability">
+        <permission name="android.permission.INSTALL_PACKAGES" />
+        <permission name="android.permission.DELETE_PACKAGES" />
+        <permission name="android.permission.INSTALL_GRANT_RUNTIME_PERMISSIONS" />
+        <permission name="android.permission.MANAGE_USERS" />
+    </privapp-permissions>
+</permissions>

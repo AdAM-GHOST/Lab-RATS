@@ -4,9 +4,18 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#4C073507"
+    android:background="@drawable/gradient_background"
     android:fitsSystemWindows="true"
     tools:context=".MainActivity">
+
+    <!-- Cyber Grid Overlay -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0.45"
+        android:contentDescription="@null"
+        android:scaleType="centerCrop"
+        app:srcCompat="@drawable/ic_cyber_grid_tile" />
 
     <ScrollView
         android:layout_width="0dp"
@@ -20,68 +29,26 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_margin="3dp"
             android:orientation="vertical"
-            android:padding="13dp">
+            android:padding="10dp">
 
             <!-- Header -->
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="bottom"
-                android:layout_marginBottom="14dp"
-                android:background="#040404"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:paddingVertical="20dp">
-
-                <ImageView
-                    android:id="@+id/imageView4"
-                    android:layout_width="160dp"
-                    android:layout_height="140dp"
-                    android:layout_gravity="center"
-                    android:tint="#01E5EBE5"
-                    app:srcCompat="@drawable/app_logo" />
-
-                <TextView
-                    android:id="@+id/tvAppTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="@font/orbitron"
-                    android:letterSpacing="0.05"
-                    android:text="LAB-RATS"
-                    android:textAlignment="center"
-                    android:textAllCaps="false"
-                    android:textColor="#FC3DEDF6"
-                    android:textSize="36sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvDevelopedBy"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:alpha="0.9"
-                    android:fontFamily="@font/aldrich"
-                    android:letterSpacing="0.12"
-                    android:text="DEVELOPED BY K4N3CO.LABS"
-                    android:textAllCaps="true"
-                    android:textColor="#FC00F2FF"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    tools:ignore="TextSizeCheck" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:alpha="0.9"
-                    android:fontFamily="@font/aldrich"
-                    android:letterSpacing="0.2"
-                    android:text="v1.5.1"
-                    android:textColor="@color/neon_cyan"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
-            </LinearLayout>
+            <ImageView
+                android:id="@+id/ivHeaderBanner"
+                android:layout_width="352dp"
+                android:layout_height="240dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="15dp"
+                android:adjustViewBounds="true"
+                android:background="@drawable/header_card_bg"
+                android:paddingLeft="10dp"
+                android:paddingTop="8dp"
+                android:paddingRight="10dp"
+                android:paddingBottom="6dp"
+                android:scaleType="fitXY"
+                app:srcCompat="@drawable/header" />
 
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
@@ -99,13 +66,12 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="4dp"
-                        android:alpha="1"
-                        android:background="#C900F2FF" />
+                        android:background="#E000F2FF" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="#040404"
+                        android:layout_height="184dp"
+                        android:background="@drawable/gradient_background"
                         android:gravity="bottom"
                         android:orientation="vertical"
                         android:padding="13dp">
@@ -117,17 +83,17 @@
                             android:layout_gravity="center"
                             android:layout_marginBottom="13dp"
                             android:fontFamily="@font/orbitron"
-                            android:letterSpacing="0.15"
+                            android:letterSpacing="0.1"
                             android:text="🔴 SERVER_OFFLINE"
                             android:textColor="@color/neon_red"
-                            android:textSize="18sp"
+                            android:textSize="19sp"
                             android:textStyle="bold" />
 
                         <View
                             android:layout_width="match_parent"
-                            android:layout_height="1dp"
+                            android:layout_height="2dp"
                             android:layout_marginBottom="15dp"
-                            android:background="#AF474D49" />
+                            android:background="#FC070707" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -138,48 +104,51 @@
                             android:text="VIRTUAL_UPLINK_INFO:"
                             android:textAllCaps="true"
                             android:textColor="@color/white"
-                            android:textSize="10sp" />
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:id="@+id/tvIpAddress"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:alpha="0.9"
-                            android:background="#4E084008"
+                            android:background="#050505"
                             android:fontFamily="@font/aldrich"
                             android:gravity="center_vertical"
-                            android:letterSpacing="0.05"
+                            android:letterSpacing="0.16"
                             android:minHeight="34dp"
                             android:paddingStart="8dp"
                             android:text="[LOADING_DATA...]"
                             android:textColor="@color/neon_cyan"
-                            android:textSize="14sp" />
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="12dp"
+                            android:layout_marginTop="14dp"
                             android:alpha="0.7"
                             android:fontFamily="@font/aldrich"
                             android:letterSpacing="0.2"
                             android:text="REMOTE_C2_LINK"
                             android:textAllCaps="true"
                             android:textColor="@color/white"
-                            android:textSize="10sp" />
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:id="@+id/tvServerUrl"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:background="#4E084008"
+                            android:background="#020202"
                             android:fontFamily="@font/assistant"
                             android:gravity="center_vertical"
+                            android:letterSpacing="0.05"
                             android:minHeight="38dp"
                             android:padding="6dp"
                             android:text="UPLINK_INACTIVE"
                             android:textColor="@color/neon_cyan"
-                            android:textSize="14sp" />
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
 
                     </LinearLayout>
                 </LinearLayout>
@@ -189,7 +158,7 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnStartStop"
                 android:layout_width="match_parent"
-                android:layout_height="49dp"
+                android:layout_height="48dp"
                 android:layout_marginBottom="11dp"
                 android:backgroundTint="#EA00F2FF"
                 android:fontFamily="@font/orbitron"
@@ -207,7 +176,7 @@
                 android:id="@+id/btnCopyUrl"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="match_parent"
-                android:layout_height="36dp"
+                android:layout_height="41dp"
                 android:layout_marginBottom="12dp"
                 android:fontFamily="@font/orbitron"
                 android:insetTop="0dp"
@@ -241,7 +210,7 @@
                 android:layout_height="43dp"
                 android:layout_marginTop="55dp"
                 android:layout_marginBottom="40dp"
-                android:background="#000000"
+                android:background="#03000000"
                 android:gravity="center"
                 android:orientation="vertical"
                 android:padding="12dp">

